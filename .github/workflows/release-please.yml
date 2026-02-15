@@ -1,0 +1,68 @@
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+name: release-please
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - name: Check out PR
+        uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.pr }}
+        with:
+          ref: ${{ steps.release.outputs.pr.headBranchName }}
+          fetch-depth: 0
+      - name: Update plugin manifest version
+        if: ${{ steps.release.outputs.pr }}
+        run: |
+            # Checkout release-please PR under automated account
+            git config user.name github-actions[bot]
+            git config user.email github-actions[bot]@users.noreply.github.com
+            git switch ${{ fromJson(steps.release.outputs.pr).headBranchName }}
+
+            # Extract version from package.json
+            version=$(jq -r .version package.json)
+            major=$(echo $version | cut -d. -f1)
+            minor=$(echo $version | cut -d. -f2)
+            patch=$(echo $version | cut -d. -f3)
+        
+            # Update plugin manifest
+            jq ".version.major = $major | .version.minor = $minor | .version.patch = $patch" public/manifest.json > manifest_tmp.json
+            mv manifest_tmp.json public/manifest.json
+        
+            # Commit and push
+            git add public/manifest.json
+            git commit -m "chore: Update plugin manifest version to $version"
+            git push
+      - name: Checkout main
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/checkout@v4
+      - name: Setup node
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: '.nvmrc'
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.release_created }}
+        run: npm ci
+      - name: Build plugin
+        if: ${{ steps.release.outputs.release_created }}
+        run: npm run build
+      - name: Upload plugin zip to release
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ steps.release.outputs.tag_name }} ./PluginZip.zip
