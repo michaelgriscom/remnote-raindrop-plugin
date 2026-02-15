@@ -16,7 +16,7 @@ A RemNote plugin that imports highlighted passages from your Raindrop.io bookmar
 2. Go to [Raindrop.io Integrations](https://app.raindrop.io/settings/integrations)
 3. Create a new app and copy the **Test token**
 4. Paste the token into the plugin's "Raindrop.io API Token" setting
-5. Click "Sync Now" in the sidebar widget or wait for automatic sync
+5. Sync via the sidebar widget or command palette (`Sync Raindrop Highlights`) or wait for automatic sync
 
 ## Settings
 
