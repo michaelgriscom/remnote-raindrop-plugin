@@ -7,8 +7,8 @@ A RemNote plugin that imports highlighted passages from your Raindrop.io bookmar
 - Automatically polls Raindrop.io for new highlights
 - Imports articles with their highlighted passages into RemNote
 - Supports importing into a dedicated "Raindrop Highlights" document or the Daily Document
-- Preserves highlight colors and user notes
 - Deduplicates to avoid re-importing the same highlights
+- (optionally) Preserves highlight colors and user notes
 
 ## Setup
 
@@ -22,6 +22,6 @@ A RemNote plugin that imports highlighted passages from your Raindrop.io bookmar
 
 - **API Token**: Your Raindrop.io test token
 - **Import Location**: Choose between a dedicated Rem or the Daily Document
-- **Sync Interval**: How often to auto-sync (default: 30 minutes, minimum: 5)
+- **Sync Interval**: How often to auto-sync (default: 30 minutes, minimum: 5). Set to 0 to disable.
 - **Include Highlight Notes**: Import user notes attached to highlights
-- **Include Highlight Colors**: Map Raindrop highlight colors to RemNote colors
+- **Include Highlight Colors**: Preserve highlight colors from Raindrop when importing

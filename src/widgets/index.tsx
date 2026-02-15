@@ -35,7 +35,7 @@ async function onActivate(plugin: ReactRNPlugin) {
   await plugin.settings.registerNumberSetting({
     id: SETTING_IDS.SYNC_INTERVAL,
     title: 'Sync Interval (minutes)',
-    description: 'How often to automatically sync highlights. Minimum 5 minutes.',
+    description: 'How often to automatically sync highlights. Set to 0 to disable automatic sync.',
     defaultValue: 30,
   });
 
@@ -49,7 +49,7 @@ async function onActivate(plugin: ReactRNPlugin) {
   await plugin.settings.registerBooleanSetting({
     id: SETTING_IDS.INCLUDE_COLORS,
     title: 'Include Highlight Colors',
-    description: 'Map Raindrop highlight colors to RemNote highlight colors.',
+    description: 'Preserve highlight colors from Raindrop when importing into RemNote.',
     defaultValue: true,
   });
 
@@ -83,13 +83,14 @@ async function onActivate(plugin: ReactRNPlugin) {
 
   await plugin.app.registerWidget('raindrop_widget', WidgetLocation.RightSidebar, {
     dimensions: { height: 'auto', width: '100%' },
+    widgetTabTitle: 'Raindrop',
   });
 
-  // Start auto-polling if a token is configured
+  // Start auto-polling if a token is configured and interval > 0
   const token = await plugin.settings.getSetting<string>(SETTING_IDS.API_TOKEN);
-  if (token && token.trim()) {
-    const interval = await plugin.settings.getSetting<number>(SETTING_IDS.SYNC_INTERVAL);
-    startPolling(plugin, interval || 30);
+  const interval = await plugin.settings.getSetting<number>(SETTING_IDS.SYNC_INTERVAL);
+  if (token && token.trim() && interval && interval > 0) {
+    startPolling(plugin, interval);
   }
 }
 

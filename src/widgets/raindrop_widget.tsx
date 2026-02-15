@@ -49,7 +49,9 @@ const RaindropWidget = () => {
 
       // Restart polling after manual sync with current interval
       const interval = await plugin.settings.getSetting<number>(SETTING_IDS.SYNC_INTERVAL);
-      startPolling(plugin, interval || 30);
+      if (interval && interval > 0) {
+        startPolling(plugin, interval);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setSyncResult(`Sync failed: ${message}`);

@@ -95,6 +95,7 @@ let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
 
 export function startPolling(plugin: RNPlugin, intervalMinutes: number): void {
   stopPolling();
+  if (intervalMinutes <= 0) return;
   const intervalMs = Math.max(intervalMinutes, 5) * 60 * 1000;
 
   pollingIntervalId = setInterval(() => {
