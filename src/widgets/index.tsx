@@ -17,7 +17,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     id: SETTING_IDS.IMPORT_LOCATION,
     title: 'Import Location',
     description: 'Where to import highlighted articles.',
-    defaultValue: IMPORT_LOCATIONS.DEDICATED,
+    defaultValue: IMPORT_LOCATIONS.DAILY,
     options: [
       {
         key: IMPORT_LOCATIONS.DEDICATED,
