@@ -3,7 +3,7 @@ import { ArticleWithHighlights } from './types';
 import {
   SETTING_IDS,
   IMPORT_LOCATIONS,
-  RAINDROP_HIGHLIGHTS_REM_NAME,
+  RAINDROP_ARTICLES_REM_NAME,
 } from './constants';
 
 type HighlightColor = 'Red' | 'Orange' | 'Yellow' | 'Green' | 'Blue' | 'Purple';
@@ -27,12 +27,12 @@ function mapHighlightColor(raindropColor: string): HighlightColor | undefined {
 }
 
 async function getOrCreateDedicatedParent(plugin: RNPlugin) {
-  const name = await plugin.richText.text(RAINDROP_HIGHLIGHTS_REM_NAME).value();
+  const name = await plugin.richText.text(RAINDROP_ARTICLES_REM_NAME).value();
   let rem = await plugin.rem.findByName(name, null);
 
   if (!rem) {
     rem = await plugin.rem.createRem();
-    if (!rem) throw new Error('Could not create Raindrop Highlights Rem');
+    if (!rem) throw new Error('Could not create Raindrop Articles Rem');
     await rem.setText(name);
     await rem.setIsDocument(true);
   }
@@ -44,21 +44,21 @@ async function getOrCreateDailySection(plugin: RNPlugin) {
   const dailyDoc = await plugin.date.getTodaysDoc();
   if (!dailyDoc) throw new Error('Could not access daily document');
 
-  const sectionName = await plugin.richText.text(RAINDROP_HIGHLIGHTS_REM_NAME).value();
+  const sectionName = await plugin.richText.text(RAINDROP_ARTICLES_REM_NAME).value();
   const children = await dailyDoc.getChildrenRem();
 
   for (const child of children) {
     const childText = child.text;
     if (childText) {
       const textStr = await plugin.richText.toString(childText);
-      if (textStr === RAINDROP_HIGHLIGHTS_REM_NAME) {
+      if (textStr === RAINDROP_ARTICLES_REM_NAME) {
         return child;
       }
     }
   }
 
   const section = await plugin.rem.createRem();
-  if (!section) throw new Error('Could not create Raindrop Highlights section');
+  if (!section) throw new Error('Could not create Raindrop Articles section');
   await section.setText(sectionName);
   await section.setParent(dailyDoc._id);
   await section.setFontSize('H2');

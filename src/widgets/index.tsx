@@ -1,6 +1,6 @@
-import { declareIndexPlugin, ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
+import { declareIndexPlugin, type ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
 import '../style.css';
-import '../App.css';
+import '../index.css'; // import <widget-name>.css
 import { SETTING_IDS, IMPORT_LOCATIONS } from '../lib/constants';
 import { performSync, startPolling, stopPolling } from '../lib/sync-engine';
 
@@ -17,11 +17,11 @@ async function onActivate(plugin: ReactRNPlugin) {
     id: SETTING_IDS.IMPORT_LOCATION,
     title: 'Import Location',
     description: 'Where to import highlighted articles.',
-    defaultValue: IMPORT_LOCATIONS.DEDICATED,
+    defaultValue: IMPORT_LOCATIONS.DAILY,
     options: [
       {
         key: IMPORT_LOCATIONS.DEDICATED,
-        label: 'Raindrop Highlights Rem',
+        label: 'Raindrop Articles Rem',
         value: IMPORT_LOCATIONS.DEDICATED,
       },
       {
@@ -48,7 +48,7 @@ async function onActivate(plugin: ReactRNPlugin) {
 
   await plugin.app.registerCommand({
     id: 'sync-raindrop',
-    name: 'Sync Raindrop Highlights',
+    name: 'Sync Raindrop',
     description: 'Manually sync highlights from Raindrop.io',
     action: async () => {
       const token = await plugin.settings.getSetting<string>(SETTING_IDS.API_TOKEN);

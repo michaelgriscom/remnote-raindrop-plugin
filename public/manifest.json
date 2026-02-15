@@ -11,7 +11,7 @@
     "patch": 1
   },
   "theme": [],
-  "enableOnMobile": false,
+  "enableOnMobile": true,
   "description": "Import highlighted passages from Raindrop.io bookmarks into RemNote",
   "requestNative": false,
   "requiredScopes": [
