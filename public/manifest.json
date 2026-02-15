@@ -1,9 +1,10 @@
 {
   "manifestVersion": 1,
-  "id": "plugin_template",
-  "name": "Plugin Template",
-  "author": "remnote",
-  "repoUrl": "",
+  "id": "remnote-raindrop-plugin",
+  "name": "Raindrop.io Sync",
+  "author": "michaelgriscom",
+  "repoUrl": "https://github.com/michaelgriscom/remnote-raindrop-plugin",
+  "changelogUrl": "https://github.com/michaelgriscom/remnote-raindrop-plugin/blob/main/CHANGELOG.md",
   "version": {
     "major": 0,
     "minor": 0,
@@ -11,12 +12,12 @@
   },
   "theme": [],
   "enableOnMobile": false,
-  "description": "",
+  "description": "Import highlighted passages from Raindrop.io bookmarks into RemNote",
   "requestNative": false,
   "requiredScopes": [
     {
       "type": "All",
-      "level": "Read"
+      "level": "ReadCreateModify"
     }
   ]
 }
