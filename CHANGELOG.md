@@ -5,7 +5,6 @@
 
 ### Features
 
-* implement Raindrop.io highlights import ([501bf3f](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/501bf3fc2d2c6948f92834225f8ebcc8c52a89eb))
 * implement Raindrop.io highlights import ([e5bf681](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/e5bf681c0300236e39876c528e115dd93581ffe5))
 
 
