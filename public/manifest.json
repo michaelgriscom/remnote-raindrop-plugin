@@ -4,6 +4,7 @@
   "name": "Raindrop.io Sync",
   "author": "michaelgriscom",
   "repoUrl": "https://github.com/michaelgriscom/remnote-raindrop-plugin",
+  "changelogUrl": "https://github.com/michaelgriscom/remnote-raindrop-plugin/blob/main/CHANGELOG.md",
   "version": {
     "major": 0,
     "minor": 0,
