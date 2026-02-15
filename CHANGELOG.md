@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/michaelgriscom/remnote-raindrop-plugin/compare/v0.1.0...v0.1.1) (2026-02-15)
+
+
+### Bug Fixes
+
+* add logo for widget tab ([3c2cc2e](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/3c2cc2eabca4866a54c50145122cf11a10cf2fbe))
+
 ## [0.1.0](https://github.com/michaelgriscom/remnote-raindrop-plugin/compare/v0.0.1...v0.1.0) (2026-02-15)
 
 
