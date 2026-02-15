@@ -1,6 +1,6 @@
 # Raindrop.io Sync
 
-A RemNote plugin that imports links with their highlighted passages from your Raindrop.io bookmarks.
+A RemNote plugin that imports links with their highlighted passages from your Raindrop.io bookmarks. This plugin is unofficial and not affiliated with Raindrop.io.
 
 ## Features
 
