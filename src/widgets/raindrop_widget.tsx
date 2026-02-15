@@ -71,7 +71,7 @@ const RaindropWidget = () => {
 
   return (
     <div className="p-3 m-2 rounded-lg rn-clr-background-light-positive">
-      <h1 className="text-lg font-bold mb-3">Raindrop.io Highlights</h1>
+      <h1 className="text-lg font-bold mb-3">Raindrop.io Sync</h1>
 
       <div className="mb-3">
         <div className="text-sm mb-1">
