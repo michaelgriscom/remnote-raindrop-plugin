@@ -21,7 +21,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     options: [
       {
         key: IMPORT_LOCATIONS.DEDICATED,
-        label: 'Raindrop Highlights Rem',
+        label: 'Raindrop Articles Rem',
         value: IMPORT_LOCATIONS.DEDICATED,
       },
       {
@@ -48,7 +48,7 @@ async function onActivate(plugin: ReactRNPlugin) {
 
   await plugin.app.registerCommand({
     id: 'sync-raindrop',
-    name: 'Sync Raindrop Highlights',
+    name: 'Sync Raindrop',
     description: 'Manually sync highlights from Raindrop.io',
     action: async () => {
       const token = await plugin.settings.getSetting<string>(SETTING_IDS.API_TOKEN);

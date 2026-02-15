@@ -17,4 +17,4 @@ export const IMPORT_LOCATIONS = {
   DAILY: 'daily',
 } as const;
 
-export const RAINDROP_HIGHLIGHTS_REM_NAME = 'Raindrop Highlights';
+export const RAINDROP_ARTICLES_REM_NAME = 'Raindrop Articles';

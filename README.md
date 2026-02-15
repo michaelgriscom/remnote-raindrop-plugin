@@ -1,12 +1,12 @@
-# Raindrop.io Highlights
+# Raindrop.io Sync
 
-A RemNote plugin that imports highlighted passages from your Raindrop.io bookmarks.
+A RemNote plugin that imports links with their highlighted passages from your Raindrop.io bookmarks.
 
 ## Features
 
 - Automatically polls Raindrop.io for new highlights
 - Imports articles with their highlighted passages into RemNote
-- Supports importing into a dedicated "Raindrop Highlights" document or the Daily Document
+- Supports importing into a dedicated document (`Raindrop Sync`) or the Daily Document
 - Deduplicates to avoid re-importing the same highlights
 - (optionally) Preserves highlight colors and user notes
 
@@ -16,7 +16,7 @@ A RemNote plugin that imports highlighted passages from your Raindrop.io bookmar
 2. Go to [Raindrop.io Integrations](https://app.raindrop.io/settings/integrations)
 3. Create a new app and copy the **Test token**
 4. Paste the token into the plugin's "Raindrop.io API Token" setting
-5. Sync via the sidebar widget or command palette (`Sync Raindrop Highlights`) or wait for automatic sync
+5. Sync via the sidebar widget or command palette (`Sync Raindrop`) or wait for automatic sync
 
 ## Settings
 
