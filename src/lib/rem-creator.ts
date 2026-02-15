@@ -81,7 +81,6 @@ export async function importArticle(
   article: ArticleWithHighlights
 ): Promise<void> {
   const parentRem = await getImportParent(plugin);
-  const includeNotes = await plugin.settings.getSetting<boolean>(SETTING_IDS.INCLUDE_NOTES);
   const includeColors = await plugin.settings.getSetting<boolean>(SETTING_IDS.INCLUDE_COLORS);
 
   const articleRem = await plugin.rem.createRem();
@@ -116,7 +115,7 @@ export async function importArticle(
       }
     }
 
-    if (includeNotes && highlight.note && highlight.note.trim()) {
+    if (highlight.note && highlight.note.trim()) {
       const noteRem = await plugin.rem.createRem();
       if (noteRem) {
         const noteText = await plugin.richText

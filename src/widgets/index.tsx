@@ -40,13 +40,6 @@ async function onActivate(plugin: ReactRNPlugin) {
   });
 
   await plugin.settings.registerBooleanSetting({
-    id: SETTING_IDS.INCLUDE_NOTES,
-    title: 'Include Highlight Notes',
-    description: 'Import user notes attached to highlights as child Rem.',
-    defaultValue: true,
-  });
-
-  await plugin.settings.registerBooleanSetting({
     id: SETTING_IDS.INCLUDE_COLORS,
     title: 'Include Highlight Colors',
     description: 'Preserve highlight colors from Raindrop when importing into RemNote.',

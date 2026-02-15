@@ -23,5 +23,4 @@ A RemNote plugin that imports highlighted passages from your Raindrop.io bookmar
 - **API Token**: Your Raindrop.io test token
 - **Import Location**: Choose between a dedicated Rem or the Daily Document
 - **Sync Interval**: How often to auto-sync (default: 30 minutes, minimum: 5). Set to 0 to disable.
-- **Include Highlight Notes**: Import user notes attached to highlights
 - **Include Highlight Colors**: Preserve highlight colors from Raindrop when importing
