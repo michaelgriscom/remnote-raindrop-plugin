@@ -77,6 +77,7 @@ async function onActivate(plugin: ReactRNPlugin) {
   await plugin.app.registerWidget('raindrop_widget', WidgetLocation.RightSidebar, {
     dimensions: { height: 'auto', width: '100%' },
     widgetTabTitle: 'Raindrop',
+    widgetTabIcon: `${plugin.rootURL}logo.svg`,
   });
 
   // Start auto-polling if a token is configured and interval > 0
