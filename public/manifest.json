@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "id": "remnote-raindrop-plugin",
-  "name": "Raindrop.io Highlights",
+  "name": "Raindrop.io Sync",
   "author": "michaelgriscom",
   "repoUrl": "https://github.com/michaelgriscom/remnote-raindrop-plugin",
   "version": {
