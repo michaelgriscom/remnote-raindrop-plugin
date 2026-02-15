@@ -1,6 +1,6 @@
-import { declareIndexPlugin, ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
+import { declareIndexPlugin, type ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
 import '../style.css';
-import '../App.css';
+import '../index.css'; // import <widget-name>.css
 import { SETTING_IDS, IMPORT_LOCATIONS } from '../lib/constants';
 import { performSync, startPolling, stopPolling } from '../lib/sync-engine';
 
