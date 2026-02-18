@@ -49,6 +49,14 @@ function groupHighlightsByArticle(
     articleMap.get(key)!.highlights.push(h);
   }
 
+  // Sort highlights within each article by creation time (oldest first)
+  // so they appear in the same order as in the source text.
+  for (const article of articleMap.values()) {
+    article.highlights.sort(
+      (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
+    );
+  }
+
   return Array.from(articleMap.values());
 }
 
