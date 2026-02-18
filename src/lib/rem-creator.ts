@@ -49,10 +49,14 @@ async function getOrCreateDailySection(plugin: RNPlugin) {
 
   for (const child of children) {
     const childText = child.text;
-    if (childText) {
-      const textStr = await plugin.richText.toString(childText);
-      if (textStr === RAINDROP_ARTICLES_REM_NAME) {
-        return child;
+    if (childText && Array.isArray(childText) && childText.length > 0) {
+      try {
+        const textStr = await plugin.richText.toString(childText);
+        if (textStr === RAINDROP_ARTICLES_REM_NAME) {
+          return child;
+        }
+      } catch {
+        // Skip children with unparsable text
       }
     }
   }
@@ -100,6 +104,8 @@ export async function importArticle(
   }
 
   for (const highlight of article.highlights) {
+    if (!highlight.text?.trim()) continue;
+
     const highlightRem = await plugin.rem.createRem();
     if (!highlightRem) continue;
 
