@@ -6,10 +6,10 @@ export const SETTING_IDS = {
 } as const;
 
 export const STORAGE_KEYS = {
-  IMPORTED_IDS: 'imported-highlight-ids',
-  LAST_SYNC_TIME: 'last-sync-time',
-  SYNC_STATUS: 'sync-status',
-  SYNC_RESULT: 'sync-result',
+  IMPORTED_IDS: 'remnote-raindrop-plugin_imported-highlight-ids',
+  LAST_SYNC_TIME: 'remnote-raindrop-plugin_last-sync-time',
+  SYNC_STATUS: 'remnote-raindrop-plugin_sync-status',
+  SYNC_RESULT: 'remnote-raindrop-plugin_sync-result',
 } as const;
 
 export const IMPORT_LOCATIONS = {
