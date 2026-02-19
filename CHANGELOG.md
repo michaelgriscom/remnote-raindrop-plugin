@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.0](https://github.com/michaelgriscom/remnote-raindrop-plugin/compare/v0.1.1...v1.0.0) (2026-02-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* Storage keys are renamed, so previously tracked imported highlight IDs and last sync time will be lost. The first sync after this change will re-import all highlights.
+
+### Bug Fixes
+
+* namespace session storage keys to avoid cross-plugin conflicts ([25cce44](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/25cce4450e9ef670c0fb7bb57dbd06187bf98094))
+* remove unnecessary 5-minute sync interval clamp and document reload requirement ([24ba723](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/24ba723d341c207a9b7e77356b65ece776c84ee9))
+* sort highlights by creation time to preserve source order ([1bebdb9](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/1bebdb920e900c0061a1d0514f1707a76da91971))
+* validate richText before toString in daily section lookup ([29638da](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/29638da9c9d22290c0c34e7f7bee698b58414207))
+
 ## [0.1.1](https://github.com/michaelgriscom/remnote-raindrop-plugin/compare/v0.1.0...v0.1.1) (2026-02-15)
 
 
