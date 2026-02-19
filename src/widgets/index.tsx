@@ -35,7 +35,8 @@ async function onActivate(plugin: ReactRNPlugin) {
   await plugin.settings.registerNumberSetting({
     id: SETTING_IDS.SYNC_INTERVAL,
     title: 'Sync Interval (minutes)',
-    description: 'How often to automatically sync highlights. Set to 0 to disable automatic sync.',
+    description:
+      'How often to automatically sync highlights. Set to 0 to disable automatic sync. Changing this value requires reloading the plugin.',
     defaultValue: 30,
   });
 

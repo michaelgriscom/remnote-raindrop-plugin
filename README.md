@@ -22,5 +22,5 @@ A RemNote plugin that imports links with their highlighted passages from your Ra
 
 - **API Token**: Your Raindrop.io test token
 - **Import Location**: Choose between a dedicated Rem or the Daily Document
-- **Sync Interval**: How often to auto-sync (default: 30 minutes, minimum: 5). Set to 0 to disable.
+- **Sync Interval**: How often to auto-sync (default: 30 minutes). Set to 0 to disable.
 - **Include Highlight Colors**: Preserve highlight colors from Raindrop when importing
