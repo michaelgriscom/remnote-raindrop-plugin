@@ -61,12 +61,16 @@ async function onActivate(plugin: ReactRNPlugin) {
       await plugin.app.toast('Syncing Raindrop highlights...');
       try {
         const result = await performSync(plugin);
+        const parts: string[] = [];
+        if (result.imported > 0) parts.push(`imported ${result.imported} highlights`);
+        if (result.archived > 0) parts.push(`archived ${result.archived} article(s)`);
         if (result.errors.length > 0) {
-          await plugin.app.toast(
-            `Imported ${result.imported} highlights with ${result.errors.length} error(s).`
-          );
+          parts.push(`${result.errors.length} error(s)`);
+        }
+        if (parts.length > 0) {
+          await plugin.app.toast(parts.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.');
         } else {
-          await plugin.app.toast(`Imported ${result.imported} new highlights.`);
+          await plugin.app.toast('No new highlights to import.');
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

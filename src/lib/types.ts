@@ -1,5 +1,6 @@
 export interface RaindropHighlight {
   _id: string;
+  raindropRef: number;
   text: string;
   title: string;
   color: string;
@@ -15,6 +16,11 @@ export interface HighlightsResponse {
   items: RaindropHighlight[];
 }
 
+export interface RaindropsResponse {
+  result: boolean;
+  items: { _id: number }[];
+}
+
 export interface ArticleWithHighlights {
   sourceUrl: string;
   title: string;
@@ -25,5 +31,6 @@ export interface ArticleWithHighlights {
 
 export interface SyncResult {
   imported: number;
+  archived: number;
   errors: string[];
 }

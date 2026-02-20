@@ -7,6 +7,7 @@ export const SETTING_IDS = {
 
 export const STORAGE_KEYS = {
   IMPORTED_IDS: 'remnote-raindrop-plugin_imported-highlight-ids',
+  RAINDROP_REM_MAP: 'remnote-raindrop-plugin_raindrop-rem-map',
   LAST_SYNC_TIME: 'remnote-raindrop-plugin_last-sync-time',
   SYNC_STATUS: 'remnote-raindrop-plugin_sync-status',
   SYNC_RESULT: 'remnote-raindrop-plugin_sync-result',
@@ -18,3 +19,4 @@ export const IMPORT_LOCATIONS = {
 } as const;
 
 export const RAINDROP_ARTICLES_REM_NAME = 'Raindrop Articles';
+export const COMPLETED_SECTION_NAME = 'Completed';
