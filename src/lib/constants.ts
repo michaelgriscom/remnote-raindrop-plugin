@@ -20,4 +20,4 @@ export const IMPORT_LOCATIONS = {
 } as const;
 
 export const RAINDROP_ARTICLES_REM_NAME = 'Raindrop Articles';
-export const COMPLETED_REM_NAME = 'Raindrop Articles — Completed';
+export const COMPLETED_SECTION_NAME = 'Completed';

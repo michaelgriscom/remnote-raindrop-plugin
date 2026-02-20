@@ -4,7 +4,7 @@ import {
   SETTING_IDS,
   IMPORT_LOCATIONS,
   RAINDROP_ARTICLES_REM_NAME,
-  COMPLETED_REM_NAME,
+  COMPLETED_SECTION_NAME,
 } from './constants';
 
 type HighlightColor = 'Red' | 'Orange' | 'Yellow' | 'Green' | 'Blue' | 'Purple';
@@ -71,25 +71,45 @@ async function getOrCreateDailySection(plugin: RNPlugin) {
   return section;
 }
 
-async function getOrCreateCompletedParent(plugin: RNPlugin) {
-  const name = await plugin.richText.text(COMPLETED_REM_NAME).value();
-  let rem = await plugin.rem.findByName(name, null);
+async function getOrCreateCompletedSection(plugin: RNPlugin) {
+  const dedicatedParent = await getOrCreateDedicatedParent(plugin);
+  const children = await dedicatedParent.getChildrenRem();
 
-  if (!rem) {
-    rem = await plugin.rem.createRem();
-    if (!rem) throw new Error('Could not create Completed Rem');
-    await rem.setText(name);
-    await rem.setIsDocument(true);
+  for (const child of children) {
+    const childText = child.text;
+    if (childText && Array.isArray(childText) && childText.length > 0) {
+      try {
+        const textStr = await plugin.richText.toString(childText);
+        if (textStr === COMPLETED_SECTION_NAME) {
+          return child;
+        }
+      } catch {
+        // Skip children with unparsable text
+      }
+    }
   }
 
-  return rem;
+  // Add a blank separator before the Completed heading
+  const separator = await plugin.rem.createRem();
+  if (separator) {
+    await separator.setParent(dedicatedParent._id);
+  }
+
+  const section = await plugin.rem.createRem();
+  if (!section) throw new Error('Could not create Completed section');
+  const sectionName = await plugin.richText.text(COMPLETED_SECTION_NAME).value();
+  await section.setText(sectionName);
+  await section.setParent(dedicatedParent._id);
+  await section.setFontSize('H2');
+
+  return section;
 }
 
 export async function moveArticleToCompleted(plugin: RNPlugin, remId: string): Promise<void> {
   const rem = await plugin.rem.findOne(remId);
   if (!rem) return;
 
-  const completedParent = await getOrCreateCompletedParent(plugin);
+  const completedParent = await getOrCreateCompletedSection(plugin);
   await rem.setParent(completedParent._id);
 }
 
@@ -118,7 +138,7 @@ export async function importArticle(
     .text(` (${article.domain})`)
     .value();
   await articleRem.setText(titleText);
-  await articleRem.setParent(parentRem._id);
+  await articleRem.setParent(parentRem._id, 0);
 
   // Link the source URL
   const linkRem = await plugin.rem.createLinkRem(article.sourceUrl, false);
