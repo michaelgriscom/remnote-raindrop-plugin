@@ -1,7 +1,7 @@
 import { RNPlugin } from '@remnote/plugin-sdk';
 import { SETTING_IDS, STORAGE_KEYS, IMPORT_LOCATIONS } from './constants';
 import { ArticleWithHighlights, SyncResult } from './types';
-import { fetchAllHighlights } from './raindrop-api';
+import { fetchAllHighlights, fetchTrashedRaindropIds } from './raindrop-api';
 import { importArticle, moveArticleToCompleted } from './rem-creator';
 
 async function getImportedIds(plugin: RNPlugin): Promise<Set<string>> {
@@ -18,60 +18,27 @@ async function markAsImported(plugin: RNPlugin, ids: string[]): Promise<void> {
   await plugin.storage.setSynced(STORAGE_KEYS.IMPORTED_IDS, existing);
 }
 
-async function removeImportedIds(plugin: RNPlugin, ids: string[]): Promise<void> {
-  const existing =
-    (await plugin.storage.getSynced<Record<string, boolean>>(STORAGE_KEYS.IMPORTED_IDS)) || {};
-  for (const id of ids) {
-    delete existing[id];
-  }
-  await plugin.storage.setSynced(STORAGE_KEYS.IMPORTED_IDS, existing);
-}
-
-async function getHighlightArticleMap(plugin: RNPlugin): Promise<Record<string, string>> {
+async function getRaindropRemMap(plugin: RNPlugin): Promise<Record<string, string>> {
   return (
-    (await plugin.storage.getSynced<Record<string, string>>(STORAGE_KEYS.HIGHLIGHT_ARTICLE_MAP)) ||
-    {}
+    (await plugin.storage.getSynced<Record<string, string>>(STORAGE_KEYS.RAINDROP_REM_MAP)) || {}
   );
 }
 
-async function updateHighlightArticleMap(
+async function updateRaindropRemMap(
   plugin: RNPlugin,
   entries: Record<string, string>
 ): Promise<void> {
-  const existing = await getHighlightArticleMap(plugin);
+  const existing = await getRaindropRemMap(plugin);
   Object.assign(existing, entries);
-  await plugin.storage.setSynced(STORAGE_KEYS.HIGHLIGHT_ARTICLE_MAP, existing);
+  await plugin.storage.setSynced(STORAGE_KEYS.RAINDROP_REM_MAP, existing);
 }
 
-async function removeHighlightArticleEntries(plugin: RNPlugin, ids: string[]): Promise<void> {
-  const existing = await getHighlightArticleMap(plugin);
+async function removeRaindropRemEntries(plugin: RNPlugin, ids: string[]): Promise<void> {
+  const existing = await getRaindropRemMap(plugin);
   for (const id of ids) {
     delete existing[id];
   }
-  await plugin.storage.setSynced(STORAGE_KEYS.HIGHLIGHT_ARTICLE_MAP, existing);
-}
-
-async function getArticleRemMap(plugin: RNPlugin): Promise<Record<string, string>> {
-  return (
-    (await plugin.storage.getSynced<Record<string, string>>(STORAGE_KEYS.ARTICLE_REM_MAP)) || {}
-  );
-}
-
-async function updateArticleRemMap(
-  plugin: RNPlugin,
-  entries: Record<string, string>
-): Promise<void> {
-  const existing = await getArticleRemMap(plugin);
-  Object.assign(existing, entries);
-  await plugin.storage.setSynced(STORAGE_KEYS.ARTICLE_REM_MAP, existing);
-}
-
-async function removeArticleRemEntries(plugin: RNPlugin, urls: string[]): Promise<void> {
-  const existing = await getArticleRemMap(plugin);
-  for (const url of urls) {
-    delete existing[url];
-  }
-  await plugin.storage.setSynced(STORAGE_KEYS.ARTICLE_REM_MAP, existing);
+  await plugin.storage.setSynced(STORAGE_KEYS.RAINDROP_REM_MAP, existing);
 }
 
 async function setLastSyncTime(plugin: RNPlugin, time: string): Promise<void> {
@@ -79,7 +46,7 @@ async function setLastSyncTime(plugin: RNPlugin, time: string): Promise<void> {
 }
 
 function groupHighlightsByArticle(
-  highlights: { _id: string; text: string; title: string; color: string; note: string; created: string; lastUpdate: string; tags: string[]; link: string }[]
+  highlights: { _id: string; raindropRef: number; text: string; title: string; color: string; note: string; created: string; lastUpdate: string; tags: string[]; link: string }[]
 ): ArticleWithHighlights[] {
   const articleMap = new Map<string, ArticleWithHighlights>();
 
@@ -116,70 +83,35 @@ function groupHighlightsByArticle(
   return Array.from(articleMap.values());
 }
 
-async function archiveDeletedArticles(
+async function archiveTrashedBookmarks(
   plugin: RNPlugin,
-  currentHighlightIds: Set<string>,
-  importedIds: Set<string>
+  token: string
 ): Promise<number> {
-  const deletedIds = [...importedIds].filter((id) => !currentHighlightIds.has(id));
-  if (deletedIds.length === 0) return 0;
+  const raindropRemMap = await getRaindropRemMap(plugin);
+  const trackedRaindropIds = Object.keys(raindropRemMap);
+  if (trackedRaindropIds.length === 0) return 0;
 
-  const highlightArticleMap = await getHighlightArticleMap(plugin);
-  const articleRemMap = await getArticleRemMap(plugin);
+  const trashedIds = await fetchTrashedRaindropIds(token);
+  if (trashedIds.size === 0) return 0;
 
-  // Group deleted highlight IDs by article URL
-  const deletedByArticle = new Map<string, string[]>();
-  for (const id of deletedIds) {
-    const articleUrl = highlightArticleMap[id];
-    if (!articleUrl) continue;
-    if (!deletedByArticle.has(articleUrl)) {
-      deletedByArticle.set(articleUrl, []);
-    }
-    deletedByArticle.get(articleUrl)!.push(id);
-  }
-
-  // Check which articles have ALL their highlights deleted
-  const articlesToArchive: string[] = [];
-  for (const [articleUrl, deletedHighlightIds] of deletedByArticle) {
-    // Count how many imported highlights still exist for this article
-    const allArticleHighlightIds = Object.entries(highlightArticleMap)
-      .filter(([, url]) => url === articleUrl)
-      .map(([id]) => id);
-
-    const remainingIds = allArticleHighlightIds.filter((id) => !deletedHighlightIds.includes(id));
-    if (remainingIds.length === 0) {
-      articlesToArchive.push(articleUrl);
-    }
-  }
+  const toArchive = trackedRaindropIds.filter((id) => trashedIds.has(Number(id)));
+  if (toArchive.length === 0) return 0;
 
   let archivedCount = 0;
-  const allDeletedHighlightIds: string[] = [];
-  for (const articleUrl of articlesToArchive) {
-    const remId = articleRemMap[articleUrl];
-    if (!remId) continue;
-
+  const archivedIds: string[] = [];
+  for (const raindropId of toArchive) {
+    const remId = raindropRemMap[raindropId];
     try {
       await moveArticleToCompleted(plugin, remId);
       archivedCount++;
+      archivedIds.push(raindropId);
     } catch (err) {
-      console.error(`[Raindrop] Failed to archive "${articleUrl}":`, err);
-      continue;
+      console.error(`[Raindrop] Failed to archive raindrop ${raindropId}:`, err);
     }
-
-    // Collect all highlight IDs for this article for cleanup
-    const articleHighlightIds = Object.entries(highlightArticleMap)
-      .filter(([, url]) => url === articleUrl)
-      .map(([id]) => id);
-    allDeletedHighlightIds.push(...articleHighlightIds);
   }
 
-  // Clean up storage for archived articles
-  if (allDeletedHighlightIds.length > 0) {
-    await removeImportedIds(plugin, allDeletedHighlightIds);
-    await removeHighlightArticleEntries(plugin, allDeletedHighlightIds);
-  }
-  if (articlesToArchive.length > 0) {
-    await removeArticleRemEntries(plugin, articlesToArchive);
+  if (archivedIds.length > 0) {
+    await removeRaindropRemEntries(plugin, archivedIds);
   }
 
   return archivedCount;
@@ -191,16 +123,16 @@ export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
     return { imported: 0, archived: 0, errors: ['No API token configured.'] };
   }
 
-  const allHighlights = await fetchAllHighlights(token);
-  const importedIds = await getImportedIds(plugin);
   const location = await plugin.settings.getSetting<string>(SETTING_IDS.IMPORT_LOCATION);
 
-  // Detect and archive deleted bookmarks (dedicated mode only)
+  // Detect and archive trashed bookmarks (dedicated mode only)
   let archived = 0;
-  if (location === IMPORT_LOCATIONS.DEDICATED && importedIds.size > 0) {
-    const currentHighlightIds = new Set(allHighlights.map((h) => h._id));
-    archived = await archiveDeletedArticles(plugin, currentHighlightIds, importedIds);
+  if (location === IMPORT_LOCATIONS.DEDICATED) {
+    archived = await archiveTrashedBookmarks(plugin, token);
   }
+
+  const allHighlights = await fetchAllHighlights(token);
+  const importedIds = await getImportedIds(plugin);
 
   const newHighlights = allHighlights.filter((h) => !importedIds.has(h._id));
 
@@ -213,19 +145,16 @@ export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
 
   const importedHighlightIds: string[] = [];
   const errors: string[] = [];
-  const newHighlightArticleEntries: Record<string, string> = {};
-  const newArticleRemEntries: Record<string, string> = {};
+  const newRaindropRemEntries: Record<string, string> = {};
 
   for (const article of articles) {
     try {
       const articleRemId = await importArticle(plugin, article);
       importedHighlightIds.push(...article.highlights.map((h) => h._id));
 
-      // Store mappings for future deletion detection
-      for (const h of article.highlights) {
-        newHighlightArticleEntries[h._id] = article.sourceUrl;
-      }
-      newArticleRemEntries[article.sourceUrl] = articleRemId;
+      // Store raindropRef → remId mapping for trash detection
+      const raindropRef = article.highlights[0].raindropRef;
+      newRaindropRemEntries[String(raindropRef)] = articleRemId;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`Failed to import "${article.title}": ${message}`);
@@ -234,8 +163,7 @@ export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
 
   if (importedHighlightIds.length > 0) {
     await markAsImported(plugin, importedHighlightIds);
-    await updateHighlightArticleMap(plugin, newHighlightArticleEntries);
-    await updateArticleRemMap(plugin, newArticleRemEntries);
+    await updateRaindropRemMap(plugin, newRaindropRemEntries);
   }
   await setLastSyncTime(plugin, new Date().toISOString());
 
