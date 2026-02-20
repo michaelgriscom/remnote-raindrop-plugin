@@ -4,6 +4,7 @@ import {
   SETTING_IDS,
   IMPORT_LOCATIONS,
   RAINDROP_ARTICLES_REM_NAME,
+  COMPLETED_REM_NAME,
 } from './constants';
 
 type HighlightColor = 'Red' | 'Orange' | 'Yellow' | 'Green' | 'Blue' | 'Purple';
@@ -70,6 +71,28 @@ async function getOrCreateDailySection(plugin: RNPlugin) {
   return section;
 }
 
+async function getOrCreateCompletedParent(plugin: RNPlugin) {
+  const name = await plugin.richText.text(COMPLETED_REM_NAME).value();
+  let rem = await plugin.rem.findByName(name, null);
+
+  if (!rem) {
+    rem = await plugin.rem.createRem();
+    if (!rem) throw new Error('Could not create Completed Rem');
+    await rem.setText(name);
+    await rem.setIsDocument(true);
+  }
+
+  return rem;
+}
+
+export async function moveArticleToCompleted(plugin: RNPlugin, remId: string): Promise<void> {
+  const rem = await plugin.rem.findOne(remId);
+  if (!rem) return;
+
+  const completedParent = await getOrCreateCompletedParent(plugin);
+  await rem.setParent(completedParent._id);
+}
+
 async function getImportParent(plugin: RNPlugin) {
   const location = await plugin.settings.getSetting<string>(SETTING_IDS.IMPORT_LOCATION);
 
@@ -83,7 +106,7 @@ async function getImportParent(plugin: RNPlugin) {
 export async function importArticle(
   plugin: RNPlugin,
   article: ArticleWithHighlights
-): Promise<void> {
+): Promise<string> {
   const parentRem = await getImportParent(plugin);
   const includeColors = await plugin.settings.getSetting<boolean>(SETTING_IDS.INCLUDE_COLORS);
 
@@ -133,4 +156,6 @@ export async function importArticle(
       }
     }
   }
+
+  return articleRem._id;
 }

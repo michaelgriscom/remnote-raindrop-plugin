@@ -25,5 +25,6 @@ export interface ArticleWithHighlights {
 
 export interface SyncResult {
   imported: number;
+  archived: number;
   errors: string[];
 }
