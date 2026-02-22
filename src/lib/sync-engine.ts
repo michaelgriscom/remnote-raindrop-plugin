@@ -18,6 +18,22 @@ async function markAsImported(plugin: RNPlugin, ids: string[]): Promise<void> {
   await plugin.storage.setSynced(STORAGE_KEYS.IMPORTED_IDS, existing);
 }
 
+async function getArticleUrlRemMap(plugin: RNPlugin): Promise<Record<string, string>> {
+  return (
+    (await plugin.storage.getSynced<Record<string, string>>(STORAGE_KEYS.ARTICLE_URL_REM_MAP)) ||
+    {}
+  );
+}
+
+async function updateArticleUrlRemMap(
+  plugin: RNPlugin,
+  entries: Record<string, string>
+): Promise<void> {
+  const existing = await getArticleUrlRemMap(plugin);
+  Object.assign(existing, entries);
+  await plugin.storage.setSynced(STORAGE_KEYS.ARTICLE_URL_REM_MAP, existing);
+}
+
 async function setLastSyncTime(plugin: RNPlugin, time: string): Promise<void> {
   await plugin.storage.setSynced(STORAGE_KEYS.LAST_SYNC_TIME, time);
 }
@@ -77,14 +93,18 @@ export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
   }
 
   const articles = groupHighlightsByArticle(newHighlights);
+  const articleUrlRemMap = await getArticleUrlRemMap(plugin);
 
   const importedHighlightIds: string[] = [];
   const errors: string[] = [];
+  const newArticleUrlRemEntries: Record<string, string> = {};
 
   for (const article of articles) {
     try {
-      await importArticle(plugin, article);
+      const existingRemId = articleUrlRemMap[article.sourceUrl];
+      const articleRemId = await importArticle(plugin, article, existingRemId);
       importedHighlightIds.push(...article.highlights.map((h) => h._id));
+      newArticleUrlRemEntries[article.sourceUrl] = articleRemId;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`Failed to import "${article.title}": ${message}`);
@@ -93,6 +113,7 @@ export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
 
   if (importedHighlightIds.length > 0) {
     await markAsImported(plugin, importedHighlightIds);
+    await updateArticleUrlRemMap(plugin, newArticleUrlRemEntries);
   }
   await setLastSyncTime(plugin, new Date().toISOString());
 
