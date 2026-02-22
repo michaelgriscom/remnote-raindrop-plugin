@@ -16,11 +16,6 @@ export interface HighlightsResponse {
   items: RaindropHighlight[];
 }
 
-export interface RaindropsResponse {
-  result: boolean;
-  items: { _id: number }[];
-}
-
 export interface ArticleWithHighlights {
   sourceUrl: string;
   title: string;

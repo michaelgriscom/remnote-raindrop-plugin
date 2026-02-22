@@ -1,4 +1,4 @@
-import { RaindropHighlight, HighlightsResponse, RaindropsResponse } from './types';
+import { RaindropHighlight, HighlightsResponse } from './types';
 
 const BASE_URL = 'https://api.raindrop.io/rest/v1';
 
@@ -60,30 +60,16 @@ export async function fetchAllHighlights(token: string): Promise<RaindropHighlig
   return allHighlights;
 }
 
-export async function fetchTrashedRaindropIds(token: string): Promise<Set<number>> {
-  const trashedIds = new Set<number>();
-  let page = 0;
+const TRASH_COLLECTION_ID = -99;
 
-  while (true) {
-    const response = await request<RaindropsResponse>(token, '/raindrops/-99', {
-      page: String(page),
-      perpage: '50',
-    });
-
-    if (!response.result || response.items.length === 0) {
-      break;
-    }
-
-    for (const item of response.items) {
-      trashedIds.add(item._id);
-    }
-
-    if (response.items.length < 50) {
-      break;
-    }
-
-    page++;
+export async function isRaindropTrashed(token: string, raindropId: number): Promise<boolean> {
+  try {
+    const response = await request<{ item: { collection: { $id: number } } }>(
+      token,
+      `/raindrop/${raindropId}`
+    );
+    return response.item.collection.$id === TRASH_COLLECTION_ID;
+  } catch {
+    return false;
   }
-
-  return trashedIds;
 }

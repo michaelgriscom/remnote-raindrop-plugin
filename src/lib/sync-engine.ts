@@ -1,7 +1,7 @@
 import { RNPlugin } from '@remnote/plugin-sdk';
 import { SETTING_IDS, STORAGE_KEYS, IMPORT_LOCATIONS } from './constants';
 import { ArticleWithHighlights, SyncResult } from './types';
-import { fetchAllHighlights, fetchTrashedRaindropIds } from './raindrop-api';
+import { fetchAllHighlights, isRaindropTrashed } from './raindrop-api';
 import { importArticle, moveArticleToCompleted } from './rem-creator';
 
 async function getImportedIds(plugin: RNPlugin): Promise<Set<string>> {
@@ -91,15 +91,12 @@ async function archiveTrashedBookmarks(
   const trackedRaindropIds = Object.keys(raindropRemMap);
   if (trackedRaindropIds.length === 0) return 0;
 
-  const trashedIds = await fetchTrashedRaindropIds(token);
-  if (trashedIds.size === 0) return 0;
-
-  const toArchive = trackedRaindropIds.filter((id) => trashedIds.has(Number(id)));
-  if (toArchive.length === 0) return 0;
-
   let archivedCount = 0;
   const archivedIds: string[] = [];
-  for (const raindropId of toArchive) {
+  for (const raindropId of trackedRaindropIds) {
+    const trashed = await isRaindropTrashed(token, Number(raindropId));
+    if (!trashed) continue;
+
     const remId = raindropRemMap[raindropId];
     try {
       await moveArticleToCompleted(plugin, remId);
