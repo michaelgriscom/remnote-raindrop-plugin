@@ -8,6 +8,7 @@ export const SETTING_IDS = {
 export const STORAGE_KEYS = {
   IMPORTED_IDS: 'remnote-raindrop-plugin_imported-highlight-ids',
   RAINDROP_REM_MAP: 'remnote-raindrop-plugin_raindrop-rem-map',
+  ARTICLE_URL_REM_MAP: 'remnote-raindrop-plugin_article-url-rem-map',
   LAST_SYNC_TIME: 'remnote-raindrop-plugin_last-sync-time',
   SYNC_STATUS: 'remnote-raindrop-plugin_sync-status',
   SYNC_RESULT: 'remnote-raindrop-plugin_sync-result',

@@ -125,25 +125,33 @@ async function getImportParent(plugin: RNPlugin) {
 
 export async function importArticle(
   plugin: RNPlugin,
-  article: ArticleWithHighlights
+  article: ArticleWithHighlights,
+  existingArticleRemId?: string
 ): Promise<string> {
-  const parentRem = await getImportParent(plugin);
   const includeColors = await plugin.settings.getSetting<boolean>(SETTING_IDS.INCLUDE_COLORS);
 
-  const articleRem = await plugin.rem.createRem();
-  if (!articleRem) throw new Error('Could not create article Rem');
+  let articleRem;
+  if (existingArticleRemId) {
+    articleRem = await plugin.rem.findOne(existingArticleRemId);
+  }
 
-  const titleText = await plugin.richText
-    .text(article.title, ['bold'])
-    .text(` (${article.domain})`)
-    .value();
-  await articleRem.setText(titleText);
-  await articleRem.setParent(parentRem._id, 0);
+  if (!articleRem) {
+    const parentRem = await getImportParent(plugin);
+    articleRem = await plugin.rem.createRem();
+    if (!articleRem) throw new Error('Could not create article Rem');
 
-  // Link the source URL
-  const linkRem = await plugin.rem.createLinkRem(article.sourceUrl, false);
-  if (linkRem) {
-    await articleRem.addSource(linkRem);
+    const titleText = await plugin.richText
+      .text(article.title, ['bold'])
+      .text(` (${article.domain})`)
+      .value();
+    await articleRem.setText(titleText);
+    await articleRem.setParent(parentRem._id, 0);
+
+    // Link the source URL
+    const linkRem = await plugin.rem.createLinkRem(article.sourceUrl, false);
+    if (linkRem) {
+      await articleRem.addSource(linkRem);
+    }
   }
 
   for (const highlight of article.highlights) {
