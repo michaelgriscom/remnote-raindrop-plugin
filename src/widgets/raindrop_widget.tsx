@@ -100,7 +100,11 @@ const RaindropWidget = () => {
       </div>
 
       {syncResult && (
-        <div className="text-xs mb-3 p-2 rounded rn-clr-background-light-warning">{syncResult}</div>
+        <div
+          className={`text-xs mb-3 p-2 rounded ${syncStatus === 'error' ? 'rn-clr-background-light-negative' : 'rn-clr-background-light-warning'}`}
+        >
+          {syncResult}
+        </div>
       )}
 
       <button

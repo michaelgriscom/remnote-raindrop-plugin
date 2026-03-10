@@ -1,7 +1,7 @@
 import { declareIndexPlugin, type ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
 import '../style.css';
 import '../index.css'; // import <widget-name>.css
-import { SETTING_IDS, IMPORT_LOCATIONS } from '../lib/constants';
+import { SETTING_IDS, IMPORT_LOCATIONS, STORAGE_KEYS } from '../lib/constants';
 import { performSync, startPolling, stopPolling } from '../lib/sync-engine';
 
 async function onActivate(plugin: ReactRNPlugin) {
@@ -65,16 +65,29 @@ async function onActivate(plugin: ReactRNPlugin) {
         if (result.imported > 0) parts.push(`imported ${result.imported} highlights`);
         if (result.archived > 0) parts.push(`archived ${result.archived} article(s)`);
         if (result.errors.length > 0) {
-          parts.push(`${result.errors.length} error(s)`);
-        }
-        if (parts.length > 0) {
-          await plugin.app.toast(parts.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.');
+          const summary =
+            parts.length > 0
+              ? parts.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.'
+              : 'Sync completed with errors.';
+          await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
+          await plugin.storage.setSession(
+            STORAGE_KEYS.SYNC_RESULT,
+            `${summary} ${result.errors.length} error(s): ${result.errors[0]}`
+          );
+          await plugin.app.toast(`${summary} Check the Raindrop sidebar tab for details.`);
+        } else if (parts.length > 0) {
+          const message = parts.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.';
+          await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'idle');
+          await plugin.storage.setSession(STORAGE_KEYS.SYNC_RESULT, message);
+          await plugin.app.toast(message);
         } else {
           await plugin.app.toast('No new highlights to import.');
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        await plugin.app.toast(`Sync failed: ${message}`);
+        await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
+        await plugin.storage.setSession(STORAGE_KEYS.SYNC_RESULT, `Sync failed: ${message}`);
+        await plugin.app.toast('Sync failed. Check the Raindrop sidebar tab for details.');
       }
     },
   });
