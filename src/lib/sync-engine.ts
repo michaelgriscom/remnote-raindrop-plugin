@@ -223,14 +223,14 @@ export function startPolling(plugin: RNPlugin, intervalMinutes: number): void {
           STORAGE_KEYS.SYNC_RESULT,
           `${summary} ${result.errors.length} error(s): ${result.errors[0]}`
         );
-        await plugin.app.toast('Auto-sync completed with errors. Check the Raindrop sidebar tab.');
+        await plugin.app.toast('Raindrop auto-sync completed with errors. Check the Raindrop sidebar tab for details.');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[Raindrop] Auto-sync error:', err);
       await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
       await plugin.storage.setSession(STORAGE_KEYS.SYNC_RESULT, `Auto-sync failed: ${message}`);
-      await plugin.app.toast('Auto-sync failed. Check the Raindrop sidebar tab for details.');
+      await plugin.app.toast('Raindrop auto-sync failed. Check the Raindrop sidebar tab for details.');
     }
   }, intervalMs);
 }
