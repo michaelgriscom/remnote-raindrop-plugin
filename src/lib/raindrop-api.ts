@@ -59,3 +59,29 @@ export async function fetchAllHighlights(token: string): Promise<RaindropHighlig
 
   return allHighlights;
 }
+
+export async function fetchHighlightsForRaindrop(
+  token: string,
+  raindropId: number
+): Promise<RaindropHighlight[]> {
+  try {
+    const response = await request<HighlightsResponse>(token, `/highlights/${raindropId}`);
+    return response.result ? response.items : [];
+  } catch {
+    return [];
+  }
+}
+
+const TRASH_COLLECTION_ID = -99;
+
+export async function isRaindropTrashed(token: string, raindropId: number): Promise<boolean> {
+  try {
+    const response = await request<{ item: { collection: { $id: number } } }>(
+      token,
+      `/raindrop/${raindropId}`
+    );
+    return response.item.collection.$id === TRASH_COLLECTION_ID;
+  } catch {
+    return false;
+  }
+}
