@@ -69,25 +69,25 @@ async function onActivate(plugin: ReactRNPlugin) {
             parts.length > 0
               ? parts.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.'
               : 'Sync completed with errors.';
+          await plugin.app.toast(`${summary} Check the Raindrop sidebar tab for details.`);
           await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
           await plugin.storage.setSession(
             STORAGE_KEYS.SYNC_RESULT,
             `${summary} ${result.errors.length} error(s): ${result.errors[0]}`
           );
-          await plugin.app.toast(`${summary} Check the Raindrop sidebar tab for details.`);
         } else if (parts.length > 0) {
           const message = parts.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.';
+          await plugin.app.toast(message);
           await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'idle');
           await plugin.storage.setSession(STORAGE_KEYS.SYNC_RESULT, message);
-          await plugin.app.toast(message);
         } else {
           await plugin.app.toast('No new highlights to import.');
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        await plugin.app.toast('Sync failed. Check the Raindrop sidebar tab for details.');
         await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
         await plugin.storage.setSession(STORAGE_KEYS.SYNC_RESULT, `Sync failed: ${message}`);
-        await plugin.app.toast('Sync failed. Check the Raindrop sidebar tab for details.');
       }
     },
   });
