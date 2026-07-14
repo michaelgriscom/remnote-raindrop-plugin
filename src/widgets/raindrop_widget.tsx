@@ -7,7 +7,8 @@ import {
 } from '@remnote/plugin-sdk';
 import { SETTING_IDS, STORAGE_KEYS } from '../lib/constants';
 import { validateToken } from '../lib/raindrop-api';
-import { performSync, startPolling } from '../lib/sync-engine';
+import { performSync } from '../lib/sync-engine';
+import { recordSyncOutcome, recordSyncFailure } from '../lib/sync-report';
 
 function formatLastSync(isoString: string | null): string {
   if (!isoString) return 'Never';
@@ -28,35 +29,24 @@ const RaindropWidget = () => {
     STORAGE_KEYS.SYNC_STATUS,
     'idle'
   );
-  const [syncResult, setSyncResult] = useSessionStorageState<string>(
-    STORAGE_KEYS.SYNC_RESULT,
-    ''
-  );
+  const [syncResult, setSyncResult] = useSessionStorageState<string>(STORAGE_KEYS.SYNC_RESULT, '');
 
   const handleManualSync = async () => {
     setSyncStatus('syncing');
     setSyncResult('');
     try {
       const result = await performSync(plugin);
-      if (result.errors.length > 0) {
-        const summary = `Imported ${result.imported} highlight(s). ${result.errors.length} error(s): ${result.errors[0]}`;
-        setSyncResult(summary);
-        setSyncStatus('error');
-        plugin.app.toast('Sync completed with errors. Check the Raindrop sidebar tab for details.');
-      } else {
-        setSyncResult(`Imported ${result.imported} new highlight(s).`);
+      if (result.skipped) {
         setSyncStatus('idle');
+        setSyncResult('A sync is already in progress.');
+        return;
       }
-
-      // Restart polling after manual sync with current interval
-      const interval = await plugin.settings.getSetting<number>(SETTING_IDS.SYNC_INTERVAL);
-      if (interval && interval > 0) {
-        startPolling(plugin, interval);
+      await recordSyncOutcome(plugin, result);
+      if (result.errors.length > 0) {
+        plugin.app.toast('Sync completed with errors. Check the Raindrop sidebar tab for details.');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSyncResult(`Sync failed: ${message}`);
-      setSyncStatus('error');
+      await recordSyncFailure(plugin, err);
       plugin.app.toast('Sync failed. Check the Raindrop sidebar tab for details.');
     }
   };
@@ -87,10 +77,7 @@ const RaindropWidget = () => {
           )}
         </div>
         {hasToken && (
-          <button
-            className="text-xs underline cursor-pointer mt-1"
-            onClick={handleValidateToken}
-          >
+          <button className="text-xs underline cursor-pointer mt-1" onClick={handleValidateToken}>
             Validate Token
           </button>
         )}

@@ -1,8 +1,10 @@
 import { RNPlugin } from '@remnote/plugin-sdk';
 import { SETTING_IDS, STORAGE_KEYS, IMPORT_LOCATIONS } from './constants';
-import { ArticleWithHighlights, SyncResult } from './types';
+import { RaindropHighlight, SyncResult } from './types';
 import { fetchAllHighlights, fetchHighlightsForRaindrop, isRaindropTrashed } from './raindrop-api';
+import { groupHighlightsByArticle } from './group-highlights';
 import { importArticle, moveArticleToCompleted } from './rem-creator';
+import { recordSyncOutcome, recordSyncFailure } from './sync-report';
 
 async function getImportedIds(plugin: RNPlugin): Promise<Set<string>> {
   const stored = await plugin.storage.getSynced<Record<string, boolean>>(STORAGE_KEYS.IMPORTED_IDS);
@@ -43,8 +45,7 @@ async function removeRaindropRemEntries(plugin: RNPlugin, ids: string[]): Promis
 
 async function getArticleUrlRemMap(plugin: RNPlugin): Promise<Record<string, string>> {
   return (
-    (await plugin.storage.getSynced<Record<string, string>>(STORAGE_KEYS.ARTICLE_URL_REM_MAP)) ||
-    {}
+    (await plugin.storage.getSynced<Record<string, string>>(STORAGE_KEYS.ARTICLE_URL_REM_MAP)) || {}
   );
 }
 
@@ -61,65 +62,41 @@ async function setLastSyncTime(plugin: RNPlugin, time: string): Promise<void> {
   await plugin.storage.setSynced(STORAGE_KEYS.LAST_SYNC_TIME, time);
 }
 
-function groupHighlightsByArticle(
-  highlights: { _id: string; raindropRef: number; text: string; title: string; color: string; note: string; created: string; lastUpdate: string; tags: string[]; link: string }[]
-): ArticleWithHighlights[] {
-  const articleMap = new Map<string, ArticleWithHighlights>();
-
-  for (const h of highlights) {
-    const key = h.link;
-    if (!articleMap.has(key)) {
-      let domain: string;
-      try {
-        domain = new URL(h.link).hostname;
-      } catch {
-        domain = h.link;
-      }
-
-      articleMap.set(key, {
-        sourceUrl: h.link,
-        title: h.title || h.link,
-        domain,
-        highlights: [],
-        lastUpdate: h.lastUpdate || h.created,
-      });
-    }
-
-    articleMap.get(key)!.highlights.push(h);
-  }
-
-  // Sort highlights within each article by creation time (oldest first)
-  // so they appear in the same order as in the source text.
-  for (const article of articleMap.values()) {
-    article.highlights.sort(
-      (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
-    );
-  }
-
-  return Array.from(articleMap.values());
-}
-
 interface TrashedBookmark {
   raindropId: string;
   remId: string;
-  highlights: import('./types').RaindropHighlight[];
+  highlights: RaindropHighlight[];
 }
 
-async function detectTrashedBookmarks(
-  plugin: RNPlugin,
-  token: string
-): Promise<TrashedBookmark[]> {
+async function detectTrashedBookmarks(plugin: RNPlugin, token: string): Promise<TrashedBookmark[]> {
   const raindropRemMap = await getRaindropRemMap(plugin);
   const trackedRaindropIds = Object.keys(raindropRemMap);
   if (trackedRaindropIds.length === 0) return [];
 
   const trashed: TrashedBookmark[] = [];
   for (const raindropId of trackedRaindropIds) {
-    if (!await isRaindropTrashed(token, Number(raindropId))) continue;
+    if (!(await isRaindropTrashed(token, Number(raindropId)))) continue;
     const highlights = await fetchHighlightsForRaindrop(token, Number(raindropId));
     trashed.push({ raindropId, remId: raindropRemMap[raindropId], highlights });
   }
   return trashed;
+}
+
+// Widgets run in separate iframes, so a module-level flag can't guard against
+// concurrent syncs across contexts (e.g. sidebar button vs. auto-poll). Use a
+// timestamped session-storage lock instead; the TTL recovers from a context
+// that died mid-sync without releasing it.
+const SYNC_LOCK_TTL_MS = 10 * 60 * 1000;
+
+async function acquireSyncLock(plugin: RNPlugin): Promise<boolean> {
+  const lockedAt = await plugin.storage.getSession<number>(STORAGE_KEYS.SYNC_LOCK);
+  if (lockedAt && Date.now() - lockedAt < SYNC_LOCK_TTL_MS) return false;
+  await plugin.storage.setSession(STORAGE_KEYS.SYNC_LOCK, Date.now());
+  return true;
+}
+
+async function releaseSyncLock(plugin: RNPlugin): Promise<void> {
+  await plugin.storage.setSession(STORAGE_KEYS.SYNC_LOCK, null);
 }
 
 export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
@@ -128,6 +105,18 @@ export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
     return { imported: 0, archived: 0, errors: ['No API token configured.'] };
   }
 
+  if (!(await acquireSyncLock(plugin))) {
+    return { imported: 0, archived: 0, errors: [], skipped: true };
+  }
+
+  try {
+    return await runSync(plugin, token);
+  } finally {
+    await releaseSyncLock(plugin);
+  }
+}
+
+async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
   const location = await plugin.settings.getSetting<string>(SETTING_IDS.IMPORT_LOCATION);
 
   // Detect trashed bookmarks upfront so we can import their highlights before archiving
@@ -213,24 +202,19 @@ export function startPolling(plugin: RNPlugin, intervalMinutes: number): void {
   pollingIntervalId = setInterval(async () => {
     try {
       const result = await performSync(plugin);
+      if (result.skipped) return;
+      await recordSyncOutcome(plugin, result);
       if (result.errors.length > 0) {
-        const parts: string[] = [];
-        if (result.imported > 0) parts.push(`Imported ${result.imported} highlights`);
-        if (result.archived > 0) parts.push(`archived ${result.archived} article(s)`);
-        const summary = parts.length > 0 ? parts.join(', ') + '.' : 'Sync completed with errors.';
-        await plugin.app.toast('Raindrop auto-sync completed with errors. Check the Raindrop sidebar tab for details.');
-        await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
-        await plugin.storage.setSession(
-          STORAGE_KEYS.SYNC_RESULT,
-          `${summary} ${result.errors.length} error(s): ${result.errors[0]}`
+        await plugin.app.toast(
+          'Raindrop auto-sync completed with errors. Check the Raindrop sidebar tab for details.'
         );
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
       console.error('[Raindrop] Auto-sync error:', err);
-      await plugin.app.toast('Raindrop auto-sync failed. Check the Raindrop sidebar tab for details.');
-      await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
-      await plugin.storage.setSession(STORAGE_KEYS.SYNC_RESULT, `Auto-sync failed: ${message}`);
+      await recordSyncFailure(plugin, err, 'Auto-sync failed');
+      await plugin.app.toast(
+        'Raindrop auto-sync failed. Check the Raindrop sidebar tab for details.'
+      );
     }
   }, intervalMs);
 }

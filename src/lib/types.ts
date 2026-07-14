@@ -28,4 +28,6 @@ export interface SyncResult {
   imported: number;
   archived: number;
   errors: string[];
+  /** True when the sync was skipped because another sync was already running. */
+  skipped?: boolean;
 }
