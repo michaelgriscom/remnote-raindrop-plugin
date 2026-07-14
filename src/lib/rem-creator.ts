@@ -1,5 +1,6 @@
 import { RNPlugin } from '@remnote/plugin-sdk';
 import { ArticleWithHighlights } from './types';
+import { mapHighlightColor } from './highlight-colors';
 import {
   SETTING_IDS,
   IMPORT_LOCATIONS,
@@ -7,24 +8,31 @@ import {
   COMPLETED_SECTION_NAME,
 } from './constants';
 
-type HighlightColor = 'Red' | 'Orange' | 'Yellow' | 'Green' | 'Blue' | 'Purple';
+// The SDK doesn't re-export its Rem class from the package root.
+type Rem = NonNullable<Awaited<ReturnType<RNPlugin['rem']['createRem']>>>;
 
-const COLOR_MAP: Record<string, HighlightColor> = {
-  red: 'Red',
-  orange: 'Orange',
-  yellow: 'Yellow',
-  green: 'Green',
-  blue: 'Blue',
-  indigo: 'Blue',
-  purple: 'Purple',
-  pink: 'Red',
-  teal: 'Green',
-  cyan: 'Blue',
-  brown: 'Orange',
-};
+async function findChildByText(
+  plugin: RNPlugin,
+  parent: Rem,
+  name: string
+): Promise<Rem | undefined> {
+  const children = await parent.getChildrenRem();
 
-function mapHighlightColor(raindropColor: string): HighlightColor | undefined {
-  return COLOR_MAP[raindropColor?.toLowerCase()];
+  for (const child of children) {
+    const childText = child.text;
+    if (childText && Array.isArray(childText) && childText.length > 0) {
+      try {
+        const textStr = await plugin.richText.toString(childText);
+        if (textStr === name) {
+          return child;
+        }
+      } catch {
+        // Skip children with unparsable text
+      }
+    }
+  }
+
+  return undefined;
 }
 
 async function getOrCreateDedicatedParent(plugin: RNPlugin) {
@@ -45,23 +53,10 @@ async function getOrCreateDailySection(plugin: RNPlugin) {
   const dailyDoc = await plugin.date.getTodaysDoc();
   if (!dailyDoc) throw new Error('Could not access daily document');
 
+  const existing = await findChildByText(plugin, dailyDoc, RAINDROP_ARTICLES_REM_NAME);
+  if (existing) return existing;
+
   const sectionName = await plugin.richText.text(RAINDROP_ARTICLES_REM_NAME).value();
-  const children = await dailyDoc.getChildrenRem();
-
-  for (const child of children) {
-    const childText = child.text;
-    if (childText && Array.isArray(childText) && childText.length > 0) {
-      try {
-        const textStr = await plugin.richText.toString(childText);
-        if (textStr === RAINDROP_ARTICLES_REM_NAME) {
-          return child;
-        }
-      } catch {
-        // Skip children with unparsable text
-      }
-    }
-  }
-
   const section = await plugin.rem.createRem();
   if (!section) throw new Error('Could not create Raindrop Articles section');
   await section.setText(sectionName);
@@ -73,21 +68,9 @@ async function getOrCreateDailySection(plugin: RNPlugin) {
 
 async function getOrCreateCompletedSection(plugin: RNPlugin) {
   const dedicatedParent = await getOrCreateDedicatedParent(plugin);
-  const children = await dedicatedParent.getChildrenRem();
 
-  for (const child of children) {
-    const childText = child.text;
-    if (childText && Array.isArray(childText) && childText.length > 0) {
-      try {
-        const textStr = await plugin.richText.toString(childText);
-        if (textStr === COMPLETED_SECTION_NAME) {
-          return child;
-        }
-      } catch {
-        // Skip children with unparsable text
-      }
-    }
-  }
+  const existing = await findChildByText(plugin, dedicatedParent, COMPLETED_SECTION_NAME);
+  if (existing) return existing;
 
   // Add a blank separator before the Completed heading
   const separator = await plugin.rem.createRem();

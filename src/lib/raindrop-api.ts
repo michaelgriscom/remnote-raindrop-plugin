@@ -2,7 +2,11 @@ import { RaindropHighlight, HighlightsResponse } from './types';
 
 const BASE_URL = 'https://api.raindrop.io/rest/v1';
 
-async function request<T>(token: string, path: string, params?: Record<string, string>): Promise<T> {
+async function request<T>(
+  token: string,
+  path: string,
+  params?: Record<string, string>
+): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
