@@ -6,7 +6,7 @@ A RemNote plugin that imports links with their highlighted passages from your Ra
 
 - Automatically polls Raindrop.io for new highlights
 - Imports articles with their highlighted passages into RemNote
-- Supports importing into a dedicated document (`Raindrop Sync`) or the Daily Document
+- Supports importing into a dedicated document (`Raindrop Articles`) or the Daily Document
 - Deduplicates to avoid re-importing the same highlights
 - (optionally) Preserves highlight colors and user notes
 
