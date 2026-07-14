@@ -11,8 +11,9 @@ RemNote plugin (React-based) for Raindrop integration. Built on the RemNote Plug
 - **`npm run dev`** — Start dev server on localhost:8080 with hot reload
 - **`npm run build`** — Validate plugin, bundle for production, and create PluginZip.zip
 - **`npm run check-types`** — Run TypeScript type checking (no emit)
+- **`npm test`** — Run unit tests with Vitest
 
-There are no test or lint scripts configured.
+There is no lint script configured.
 
 ## Architecture
 
@@ -23,6 +24,10 @@ There are no test or lint scripts configured.
 ### Widget System
 
 All `.tsx` files in [src/widgets/](src/widgets/) are auto-discovered by webpack as entry points. Each widget file gets two bundles: a regular version and a `-sandbox` variant for security isolation. Widgets are React components exported via `renderWidget()` from the SDK.
+
+### Core Sync Logic
+
+[src/lib/](src/lib/) contains the non-UI logic: the Raindrop API client ([raindrop-api.ts](src/lib/raindrop-api.ts)), sync orchestration and polling ([sync-engine.ts](src/lib/sync-engine.ts)), Rem creation ([rem-creator.ts](src/lib/rem-creator.ts)), and pure helpers (grouping, color mapping, summary formatting) which have Vitest unit tests alongside them. Note that each widget runs in its own iframe, so module-level state (like the polling interval) is per-widget-context; cross-context coordination goes through `plugin.storage` session keys.
 
 ### Key SDK Patterns
 
@@ -39,7 +44,7 @@ All `.tsx` files in [src/widgets/](src/widgets/) are auto-discovered by webpack 
 
 ### Plugin Manifest
 
-[public/manifest.json](public/manifest.json) defines plugin metadata, permissions, and capabilities. Currently configured with read-only access to all data and mobile support disabled.
+[public/manifest.json](public/manifest.json) defines plugin metadata, permissions, and capabilities. Currently configured with ReadCreateModify access to all data and mobile support enabled.
 
 ## Code Style
 
@@ -47,4 +52,4 @@ Prettier is configured: spaces (no tabs), single quotes, trailing commas (es5), 
 
 ## Node Version
 
-Node 16.15.1 (specified in [.nvmrc](.nvmrc)).
+Node 22 (specified in [.nvmrc](.nvmrc)).
