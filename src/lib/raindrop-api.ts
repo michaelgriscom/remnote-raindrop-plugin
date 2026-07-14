@@ -38,6 +38,8 @@ export async function validateToken(token: string): Promise<boolean> {
   }
 }
 
+const PAGE_SIZE = 50;
+
 export async function fetchAllHighlights(token: string): Promise<RaindropHighlight[]> {
   const allHighlights: RaindropHighlight[] = [];
   let page = 0;
@@ -45,7 +47,7 @@ export async function fetchAllHighlights(token: string): Promise<RaindropHighlig
   while (true) {
     const response = await request<HighlightsResponse>(token, '/highlights', {
       page: String(page),
-      perpage: '50',
+      perpage: String(PAGE_SIZE),
     });
 
     if (!response.result || response.items.length === 0) {
@@ -54,7 +56,7 @@ export async function fetchAllHighlights(token: string): Promise<RaindropHighlig
 
     allHighlights.push(...response.items);
 
-    if (response.items.length < 50) {
+    if (response.items.length < PAGE_SIZE) {
       break;
     }
 
@@ -64,28 +66,95 @@ export async function fetchAllHighlights(token: string): Promise<RaindropHighlig
   return allHighlights;
 }
 
-export async function fetchHighlightsForRaindrop(
-  token: string,
-  raindropId: number
-): Promise<RaindropHighlight[]> {
-  try {
-    const response = await request<HighlightsResponse>(token, `/highlights/${raindropId}`);
-    return response.result ? response.items : [];
-  } catch {
-    return [];
-  }
-}
-
 const TRASH_COLLECTION_ID = -99;
 
-export async function isRaindropTrashed(token: string, raindropId: number): Promise<boolean> {
-  try {
-    const response = await request<{ item: { collection: { $id: number } } }>(
-      token,
-      `/raindrop/${raindropId}`
-    );
-    return response.item.collection.$id === TRASH_COLLECTION_ID;
-  } catch {
-    return false;
+interface EmbeddedHighlight {
+  _id: string;
+  text: string;
+  note?: string;
+  color?: string;
+  created: string;
+  lastUpdate?: string;
+}
+
+interface RaindropItem {
+  _id: number;
+  link: string;
+  title: string;
+  tags?: string[];
+  highlights?: EmbeddedHighlight[];
+}
+
+interface RaindropsResponse {
+  result: boolean;
+  items: RaindropItem[];
+}
+
+export interface TrashedRaindrop {
+  raindropId: number;
+  highlights: RaindropHighlight[];
+}
+
+// The lastUpdate search operator only has day granularity, so back the cutoff
+// up a full day; the imported-ids set dedupes anything seen twice.
+export function trashSearchCutoff(sinceIso: string): string {
+  const cutoff = new Date(new Date(sinceIso).getTime() - 24 * 60 * 60 * 1000);
+  return cutoff.toISOString().slice(0, 10);
+}
+
+// A raindrop's embedded highlights lack the article fields that the
+// /highlights feed includes, so fold them in from the parent item.
+export function itemToHighlights(item: RaindropItem): RaindropHighlight[] {
+  return (item.highlights ?? []).map((h) => ({
+    _id: h._id,
+    raindropRef: item._id,
+    text: h.text,
+    title: item.title,
+    color: h.color ?? '',
+    note: h.note ?? '',
+    created: h.created,
+    lastUpdate: h.lastUpdate ?? h.created,
+    tags: item.tags ?? [],
+    link: item.link,
+  }));
+}
+
+/**
+ * Fetch bookmarks moved to (or modified in) the trash since `sinceIso`.
+ * Trashing bumps a bookmark's lastUpdate, so one bounded search on the trash
+ * collection finds recent deletions — including bookmarks that were trashed
+ * before they were ever synced — without checking tracked bookmarks
+ * individually.
+ */
+export async function fetchTrashedRaindropsSince(
+  token: string,
+  sinceIso: string
+): Promise<TrashedRaindrop[]> {
+  const search = `lastUpdate:>${trashSearchCutoff(sinceIso)}`;
+  const trashed: TrashedRaindrop[] = [];
+  let page = 0;
+
+  while (true) {
+    const response = await request<RaindropsResponse>(token, `/raindrops/${TRASH_COLLECTION_ID}`, {
+      page: String(page),
+      perpage: String(PAGE_SIZE),
+      search,
+    });
+
+    if (!response.result || response.items.length === 0) {
+      break;
+    }
+
+    for (const item of response.items) {
+      trashed.push({ raindropId: item._id, highlights: itemToHighlights(item) });
+    }
+
+    if (response.items.length < PAGE_SIZE) {
+      break;
+    }
+
+    page++;
   }
+
+  return trashed;
 }

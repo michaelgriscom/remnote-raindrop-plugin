@@ -8,6 +8,7 @@ A RemNote plugin that imports links with their highlighted passages from your Ra
 - Imports articles with their highlighted passages into RemNote
 - Supports importing into a dedicated document (`Raindrop Articles`) or the Daily Document
 - Deduplicates to avoid re-importing the same highlights
+- Archives deleted bookmarks: when a synced bookmark is moved to the Raindrop trash, its article moves to a `Completed` section (dedicated import location only) — including bookmarks that were highlighted and deleted before they were ever synced
 - (optionally) Preserves highlight colors and user notes
 
 ## Setup

@@ -1,7 +1,7 @@
 import { RNPlugin } from '@remnote/plugin-sdk';
 import { SETTING_IDS, STORAGE_KEYS, IMPORT_LOCATIONS } from './constants';
 import { RaindropHighlight, SyncResult } from './types';
-import { fetchAllHighlights, fetchHighlightsForRaindrop, isRaindropTrashed } from './raindrop-api';
+import { fetchAllHighlights, fetchTrashedRaindropsSince } from './raindrop-api';
 import { groupHighlightsByArticle } from './group-highlights';
 import { importArticle, moveArticleToCompleted } from './rem-creator';
 import { recordSyncOutcome, recordSyncFailure } from './sync-report';
@@ -64,22 +64,26 @@ async function setLastSyncTime(plugin: RNPlugin, time: string): Promise<void> {
 
 interface TrashedBookmark {
   raindropId: string;
-  remId: string;
+  /** Unset when the bookmark was trashed before it was ever synced. */
+  remId?: string;
   highlights: RaindropHighlight[];
 }
 
 async function detectTrashedBookmarks(plugin: RNPlugin, token: string): Promise<TrashedBookmark[]> {
-  const raindropRemMap = await getRaindropRemMap(plugin);
-  const trackedRaindropIds = Object.keys(raindropRemMap);
-  if (trackedRaindropIds.length === 0) return [];
+  const lastSync = await plugin.storage.getSynced<string>(STORAGE_KEYS.LAST_SYNC_TIME);
+  // On the first sync nothing has been imported yet, so there is nothing to archive.
+  if (!lastSync) return [];
 
-  const trashed: TrashedBookmark[] = [];
-  for (const raindropId of trackedRaindropIds) {
-    if (!(await isRaindropTrashed(token, Number(raindropId)))) continue;
-    const highlights = await fetchHighlightsForRaindrop(token, Number(raindropId));
-    trashed.push({ raindropId, remId: raindropRemMap[raindropId], highlights });
-  }
-  return trashed;
+  const raindropRemMap = await getRaindropRemMap(plugin);
+  const trashedItems = await fetchTrashedRaindropsSince(token, lastSync);
+
+  return trashedItems
+    .map(({ raindropId, highlights }) => ({
+      raindropId: String(raindropId),
+      remId: raindropRemMap[String(raindropId)],
+      highlights,
+    }))
+    .filter((b) => b.remId || b.highlights.length > 0);
 }
 
 // Widgets run in separate iframes, so a module-level flag can't guard against
@@ -137,7 +141,9 @@ async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
 
   const errors: string[] = [];
 
-  if (newHighlights.length === 0) {
+  // Trashed bookmarks may still need archiving even when there is nothing new
+  // to import (e.g. all their highlights were imported in an earlier sync).
+  if (newHighlights.length === 0 && trashedBookmarks.length === 0) {
     await setLastSyncTime(plugin, new Date().toISOString());
     return { imported: 0, archived: 0, errors: [] };
   }
@@ -175,8 +181,12 @@ async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
   let archived = 0;
   const archivedIds: string[] = [];
   for (const { raindropId, remId } of trashedBookmarks) {
+    // A bookmark trashed before it was ever synced gets its Rem created by the
+    // import above; pick the id up from this sync's new entries.
+    const targetRemId = remId ?? newRaindropRemEntries[raindropId];
+    if (!targetRemId) continue;
     try {
-      await moveArticleToCompleted(plugin, remId);
+      await moveArticleToCompleted(plugin, targetRemId);
       archived++;
       archivedIds.push(raindropId);
     } catch (err) {
