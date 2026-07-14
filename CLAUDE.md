@@ -8,7 +8,7 @@ RemNote plugin (React-based) for Raindrop integration. Built on the RemNote Plug
 
 ## Commands
 
-- **`npm run dev`** — Start dev server on localhost:8080 with hot reload
+- **`npm run dev`** — Start dev server on localhost:8081 with hot reload
 - **`npm run build`** — Validate plugin, bundle for production, and create PluginZip.zip
 - **`npm run check-types`** — Run TypeScript type checking (no emit)
 - **`npm test`** — Run unit tests with Vitest
