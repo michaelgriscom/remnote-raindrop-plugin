@@ -11,6 +11,10 @@ async function request<T>(
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
+  // Raindrop's API caches GET responses per URL server-side (x-api-cache),
+  // and sync requests repeat the same URL, so bust the cache with a nonce or
+  // results go stale — e.g. trash searches missing recently deleted bookmarks.
+  url.searchParams.set('_', String(Date.now()));
 
   const response = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
