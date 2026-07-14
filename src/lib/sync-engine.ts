@@ -210,10 +210,28 @@ export function startPolling(plugin: RNPlugin, intervalMinutes: number): void {
   if (intervalMinutes <= 0) return;
   const intervalMs = intervalMinutes * 60 * 1000;
 
-  pollingIntervalId = setInterval(() => {
-    performSync(plugin).catch((err) => {
+  pollingIntervalId = setInterval(async () => {
+    try {
+      const result = await performSync(plugin);
+      if (result.errors.length > 0) {
+        const parts: string[] = [];
+        if (result.imported > 0) parts.push(`Imported ${result.imported} highlights`);
+        if (result.archived > 0) parts.push(`archived ${result.archived} article(s)`);
+        const summary = parts.length > 0 ? parts.join(', ') + '.' : 'Sync completed with errors.';
+        await plugin.app.toast('Raindrop auto-sync completed with errors. Check the Raindrop sidebar tab for details.');
+        await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
+        await plugin.storage.setSession(
+          STORAGE_KEYS.SYNC_RESULT,
+          `${summary} ${result.errors.length} error(s): ${result.errors[0]}`
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error('[Raindrop] Auto-sync error:', err);
-    });
+      await plugin.app.toast('Raindrop auto-sync failed. Check the Raindrop sidebar tab for details.');
+      await plugin.storage.setSession(STORAGE_KEYS.SYNC_STATUS, 'error');
+      await plugin.storage.setSession(STORAGE_KEYS.SYNC_RESULT, `Auto-sync failed: ${message}`);
+    }
   }, intervalMs);
 }
 

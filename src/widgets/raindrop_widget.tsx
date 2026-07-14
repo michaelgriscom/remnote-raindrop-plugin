@@ -39,13 +39,14 @@ const RaindropWidget = () => {
     try {
       const result = await performSync(plugin);
       if (result.errors.length > 0) {
-        setSyncResult(
-          `Imported ${result.imported} highlights. ${result.errors.length} error(s): ${result.errors[0]}`
-        );
+        const summary = `Imported ${result.imported} highlight(s). ${result.errors.length} error(s): ${result.errors[0]}`;
+        setSyncResult(summary);
+        setSyncStatus('error');
+        plugin.app.toast('Sync completed with errors. Check the Raindrop sidebar tab for details.');
       } else {
         setSyncResult(`Imported ${result.imported} new highlight(s).`);
+        setSyncStatus('idle');
       }
-      setSyncStatus('idle');
 
       // Restart polling after manual sync with current interval
       const interval = await plugin.settings.getSetting<number>(SETTING_IDS.SYNC_INTERVAL);
@@ -56,6 +57,7 @@ const RaindropWidget = () => {
       const message = err instanceof Error ? err.message : String(err);
       setSyncResult(`Sync failed: ${message}`);
       setSyncStatus('error');
+      plugin.app.toast('Sync failed. Check the Raindrop sidebar tab for details.');
     }
   };
 
@@ -100,7 +102,11 @@ const RaindropWidget = () => {
       </div>
 
       {syncResult && (
-        <div className="text-xs mb-3 p-2 rounded rn-clr-background-light-warning">{syncResult}</div>
+        <div
+          className={`text-xs mb-3 p-2 rounded ${syncStatus === 'error' ? 'rn-clr-background-light-negative' : 'rn-clr-background-light-warning'}`}
+        >
+          {syncResult}
+        </div>
       )}
 
       <button
