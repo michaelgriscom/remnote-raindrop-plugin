@@ -124,10 +124,7 @@ async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
   const location = await plugin.settings.getSetting<string>(SETTING_IDS.IMPORT_LOCATION);
 
   // Detect trashed bookmarks upfront so we can import their highlights before archiving
-  let trashedBookmarks: TrashedBookmark[] = [];
-  if (location === IMPORT_LOCATIONS.DEDICATED) {
-    trashedBookmarks = await detectTrashedBookmarks(plugin, token);
-  }
+  const trashedBookmarks = await detectTrashedBookmarks(plugin, token);
 
   const [allHighlights, importedIds] = await Promise.all([
     fetchAllHighlights(token),
@@ -177,24 +174,28 @@ async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
     await updateArticleUrlRemMap(plugin, newArticleUrlRemEntries);
   }
 
-  // Archive trashed bookmarks after their highlights have been imported
+  // Archive trashed bookmarks after their highlights have been imported. Only
+  // the dedicated location has a Completed section to move them to; in daily
+  // mode articles keep their place in whichever day's document they landed in.
   let archived = 0;
   const archivedIds: string[] = [];
-  for (const { raindropId, remId } of trashedBookmarks) {
-    // A bookmark trashed before it was ever synced gets its Rem created by the
-    // import above; pick the id up from this sync's new entries.
-    const targetRemId = remId ?? newRaindropRemEntries[raindropId];
-    if (!targetRemId) continue;
-    try {
-      await moveArticleToCompleted(plugin, targetRemId);
-      archived++;
-      archivedIds.push(raindropId);
-    } catch (err) {
-      console.error(`[Raindrop] Failed to archive raindrop ${raindropId}:`, err);
+  if (location === IMPORT_LOCATIONS.DEDICATED) {
+    for (const { raindropId, remId } of trashedBookmarks) {
+      // A bookmark trashed before it was ever synced gets its Rem created by the
+      // import above; pick the id up from this sync's new entries.
+      const targetRemId = remId ?? newRaindropRemEntries[raindropId];
+      if (!targetRemId) continue;
+      try {
+        await moveArticleToCompleted(plugin, targetRemId);
+        archived++;
+        archivedIds.push(raindropId);
+      } catch (err) {
+        console.error(`[Raindrop] Failed to archive raindrop ${raindropId}:`, err);
+      }
     }
-  }
-  if (archivedIds.length > 0) {
-    await removeRaindropRemEntries(plugin, archivedIds);
+    if (archivedIds.length > 0) {
+      await removeRaindropRemEntries(plugin, archivedIds);
+    }
   }
 
   await setLastSyncTime(plugin, new Date().toISOString());
