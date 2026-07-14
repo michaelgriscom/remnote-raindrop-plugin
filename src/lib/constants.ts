@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   LAST_SYNC_TIME: 'remnote-raindrop-plugin_last-sync-time',
   SYNC_STATUS: 'remnote-raindrop-plugin_sync-status',
   SYNC_RESULT: 'remnote-raindrop-plugin_sync-result',
+  SYNC_LOCK: 'remnote-raindrop-plugin_sync-lock',
 } as const;
 
 export const IMPORT_LOCATIONS = {
