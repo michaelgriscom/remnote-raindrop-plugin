@@ -4,14 +4,22 @@ on:
       - main
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 name: release-please
 
 jobs:
+  # The only job that sees MY_RELEASE_PLEASE_TOKEN. It must never install or
+  # run dependency code: a compromised package would get the token.
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      # GITHUB_TOKEN pushes the manifest version bump to the release PR branch;
+      # release-please itself uses MY_RELEASE_PLEASE_TOKEN.
+      contents: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -23,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         if: ${{ steps.release.outputs.pr }}
         with:
-          ref: ${{ steps.release.outputs.pr.headBranchName }}
+          ref: ${{ fromJson(steps.release.outputs.pr).headBranchName }}
           fetch-depth: 0
       - name: Update plugin manifest version
         if: ${{ steps.release.outputs.pr }}
@@ -47,22 +55,44 @@ jobs:
             git add public/manifest.json
             git commit -m "chore: Update plugin manifest version to $version"
             git push
-      - name: Checkout main
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/checkout@v4
+
+  # Installs and runs dependency code, so it gets no secrets and a read-only
+  # token.
+  build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup node
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
       - name: Install dependencies
-        if: ${{ steps.release.outputs.release_created }}
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build plugin
-        if: ${{ steps.release.outputs.release_created }}
         run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-zip
+          path: PluginZip.zip
+          if-no-files-found: error
+
+  # Write access to attach the zip, but runs no dependency code.
+  upload:
+    needs: [release-please, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-zip
       - name: Upload plugin zip to release
-        if: ${{ steps.release.outputs.release_created }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ steps.release.outputs.tag_name }} ./PluginZip.zip
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: gh release upload "$TAG_NAME" ./PluginZip.zip
