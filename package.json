@@ -43,7 +43,11 @@
   },
   "overrides": {
     "bestzip": {
-      "glob": "^14.0.4"
+      "glob": "^14.0.4",
+      "minimatch": "^11.0.5"
+    },
+    "glob": {
+      "minimatch": "^11.0.5"
     },
     "readdir-glob": {
       "minimatch": "^11.0.5"
