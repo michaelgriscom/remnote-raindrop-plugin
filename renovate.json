@@ -1,0 +1,90 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "reviewers": [
+    "michaelgriscom"
+  ],
+  "assignees": [
+    "michaelgriscom"
+  ],
+  "dependencyDashboard": true,
+
+  "description": [
+    "Weekly, batched. Non-major updates automerge once 7 days old and CI is green; majors stay manual.",
+    "Runtime deps (RemNote SDK, React) are fix(deps) and cut a release; build tooling is",
+    "chore(deps). The SDK (0.0.x, so the caret is exact) and React get their own PRs."
+  ],
+
+  "timezone": "America/New_York",
+  "schedule": ["* 0-4 * * 1"],
+  "prConcurrentLimit": 5,
+  "semanticCommits": "enabled",
+
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "vulnerabilityAlerts": {
+    "description": "Security fixes skip the schedule, but not all the soak: Renovate's default drops minimumReleaseAge to none here.",
+    "minimumReleaseAge": "3 days"
+  },
+
+  "automerge": false,
+  "platformAutomerge": false,
+  "ignoreTests": false,
+
+  "packageRules": [
+    {
+      "description": "Non-major updates merge themselves once minimumReleaseAge has passed and CI is green. automergeType branch: Renovate tests the renovate/* branch and fast-forwards main without opening a PR, so CI's push run is the only check (the PR-title lint never runs). Renovate's own renovate/* statuses don't count, so if CI doesn't run the branch stays pending and nothing merges. prNotPendingHours is raised because a PR opened after the default 25 pending hours would also be automerged, on the title lint alone.",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "automerge": true,
+      "automergeType": "branch",
+      "prNotPendingHours": 8760
+    },
+    {
+      "description": "GitHub Actions never automerge (pins, version bumps or digests). Tag dates are set by the action's author, so the age gate means little, and actions run with write tokens and the release PAT. A stale pin is fine.",
+      "matchManagers": ["github-actions"],
+      "automerge": false
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major dev dependencies"
+    },
+    {
+      "description": "The SDK is 0.0.x: any release may break the plugin, and CI can't exercise it inside RemNote.",
+      "matchPackageNames": ["@remnote/plugin-sdk"],
+      "automerge": false
+    },
+    {
+      "description": "The RemNote SDK requires React 17.",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "allowedVersions": "<18"
+    },
+    {
+      "description": "Overrides force security patches into transitive deps (uuid under sockjs). A bad bump breaks the dev server but not CI, so these wait for dashboard approval.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["overrides"],
+      "groupName": null,
+      "dependencyDashboardApproval": true,
+      "prBodyNotes": [
+        "Run `npm run dev` to check that the parent package (e.g. sockjs for uuid) still loads this override; CI only runs the production build."
+      ],
+      "automerge": false
+    },
+    {
+      "description": ".nvmrc and @types/node together. Build-time only, so chore(deps).",
+      "matchDepNames": ["node", "@types/node"],
+      "groupName": "Node.js",
+      "semanticCommitType": "chore"
+    },
+    {
+      "description": "Majors soak longer.",
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "14 days",
+      "addLabels": ["major-update"]
+    }
+  ]
+}
