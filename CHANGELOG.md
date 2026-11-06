@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/michaelgriscom/remnote-raindrop-plugin/compare/v1.0.0...v1.0.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* harden sync against partial failures and stale Rem mappings ([5feeb84](https://github.com/michaelgriscom/remnote-raindrop-plugin/commit/5feeb84d3ae2075266e2d3850776785b649ea2b4))
+
 ## [1.0.0](https://github.com/michaelgriscom/remnote-raindrop-plugin/compare/v0.1.1...v1.0.0) (2026-07-14)
 
 
