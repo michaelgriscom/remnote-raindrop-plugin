@@ -1,8 +1,9 @@
 import { RNPlugin } from '@remnote/plugin-sdk';
-import { ArticleWithHighlights } from './types';
+import { ArticleWithHighlights, RaindropHighlight } from './types';
 import { mapHighlightColor } from './highlight-colors';
 import {
   SETTING_IDS,
+  STORAGE_KEYS,
   IMPORT_LOCATIONS,
   RAINDROP_ARTICLES_REM_NAME,
   COMPLETED_SECTION_NAME,
@@ -36,6 +37,15 @@ async function findChildByText(
 }
 
 async function getOrCreateDedicatedParent(plugin: RNPlugin) {
+  // Prefer the Rem we created earlier: findByName only matches top-level Rem,
+  // so once the user files the document under another Rem a name lookup would
+  // miss it and every sync would spawn a fresh top-level copy.
+  const storedId = await plugin.storage.getSynced<string>(STORAGE_KEYS.DEDICATED_PARENT_REM_ID);
+  if (storedId) {
+    const stored = await plugin.rem.findOne(storedId);
+    if (stored) return stored;
+  }
+
   const name = await plugin.richText.text(RAINDROP_ARTICLES_REM_NAME).value();
   let rem = await plugin.rem.findByName(name, null);
 
@@ -46,6 +56,7 @@ async function getOrCreateDedicatedParent(plugin: RNPlugin) {
     await rem.setIsDocument(true);
   }
 
+  await plugin.storage.setSynced(STORAGE_KEYS.DEDICATED_PARENT_REM_ID, rem._id);
   return rem;
 }
 
@@ -106,11 +117,27 @@ async function getImportParent(plugin: RNPlugin) {
   return getOrCreateDedicatedParent(plugin);
 }
 
+export interface ImportArticleResult {
+  articleRemId: string;
+  /** Ids of highlights that were written (or intentionally skipped as empty). */
+  importedHighlightIds: string[];
+  /** One message per highlight that could not be written. */
+  errors: string[];
+}
+
+/**
+ * Create (or extend) the Rem for an article and append its highlights.
+ *
+ * Throws only when the article Rem itself cannot be created. A failure while
+ * writing an individual highlight is reported in `errors` instead, so the
+ * caller can still record the article Rem and the highlights that did land;
+ * otherwise the next sync would re-import everything into a duplicate article.
+ */
 export async function importArticle(
   plugin: RNPlugin,
   article: ArticleWithHighlights,
   existingArticleRemId?: string
-): Promise<string> {
+): Promise<ImportArticleResult> {
   const includeColors = await plugin.settings.getSetting<boolean>(SETTING_IDS.INCLUDE_COLORS);
 
   let articleRem;
@@ -137,36 +164,54 @@ export async function importArticle(
     }
   }
 
+  const importedHighlightIds: string[] = [];
+  const errors: string[] = [];
+
   for (const highlight of article.highlights) {
-    if (!highlight.text?.trim()) continue;
-
-    const highlightRem = await plugin.rem.createRem();
-    if (!highlightRem) continue;
-
-    const highlightText = await plugin.richText.text(highlight.text).value();
-    await highlightRem.setText(highlightText);
-    await highlightRem.setIsQuote(true);
-    await highlightRem.setParent(articleRem._id);
-
-    if (includeColors) {
-      const remColor = mapHighlightColor(highlight.color);
-      if (remColor) {
-        await highlightRem.setHighlightColor(remColor);
-      }
+    if (!highlight.text?.trim()) {
+      importedHighlightIds.push(highlight._id);
+      continue;
     }
 
-    if (highlight.note && highlight.note.trim()) {
-      const noteRem = await plugin.rem.createRem();
-      if (noteRem) {
-        const noteText = await plugin.richText
-          .text('Note: ', ['bold'])
-          .text(highlight.note)
-          .value();
-        await noteRem.setText(noteText);
-        await noteRem.setParent(highlightRem._id);
-      }
+    try {
+      await createHighlightRem(plugin, articleRem, highlight, !!includeColors);
+      importedHighlightIds.push(highlight._id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push(`Failed to import a highlight from "${article.title}": ${message}`);
     }
   }
 
-  return articleRem._id;
+  return { articleRemId: articleRem._id, importedHighlightIds, errors };
+}
+
+async function createHighlightRem(
+  plugin: RNPlugin,
+  articleRem: Rem,
+  highlight: RaindropHighlight,
+  includeColors: boolean
+): Promise<void> {
+  const highlightRem = await plugin.rem.createRem();
+  if (!highlightRem) throw new Error('Could not create highlight Rem');
+
+  const highlightText = await plugin.richText.text(highlight.text).value();
+  await highlightRem.setText(highlightText);
+  await highlightRem.setIsQuote(true);
+  await highlightRem.setParent(articleRem._id);
+
+  if (includeColors) {
+    const remColor = mapHighlightColor(highlight.color);
+    if (remColor) {
+      await highlightRem.setHighlightColor(remColor);
+    }
+  }
+
+  if (highlight.note && highlight.note.trim()) {
+    const noteRem = await plugin.rem.createRem();
+    if (noteRem) {
+      const noteText = await plugin.richText.text('Note: ', ['bold']).text(highlight.note).value();
+      await noteRem.setText(noteText);
+      await noteRem.setParent(highlightRem._id);
+    }
+  }
 }

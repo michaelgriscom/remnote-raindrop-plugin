@@ -58,6 +58,18 @@ async function updateArticleUrlRemMap(
   await plugin.storage.setSynced(STORAGE_KEYS.ARTICLE_URL_REM_MAP, existing);
 }
 
+async function removeArticleUrlRemEntriesForRems(
+  plugin: RNPlugin,
+  remIds: string[]
+): Promise<void> {
+  const existing = await getArticleUrlRemMap(plugin);
+  const targets = new Set(remIds);
+  for (const [url, remId] of Object.entries(existing)) {
+    if (targets.has(remId)) delete existing[url];
+  }
+  await plugin.storage.setSynced(STORAGE_KEYS.ARTICLE_URL_REM_MAP, existing);
+}
+
 async function setLastSyncTime(plugin: RNPlugin, time: string): Promise<void> {
   await plugin.storage.setSynced(STORAGE_KEYS.LAST_SYNC_TIME, time);
 }
@@ -120,29 +132,50 @@ export async function performSync(plugin: RNPlugin): Promise<SyncResult> {
   }
 }
 
+/** Drop repeated highlight ids, keeping the first occurrence. */
+export function dedupeHighlights(highlights: RaindropHighlight[]): RaindropHighlight[] {
+  const seen = new Set<string>();
+  return highlights.filter((h) => {
+    if (seen.has(h._id)) return false;
+    seen.add(h._id);
+    return true;
+  });
+}
+
 async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
   const location = await plugin.settings.getSetting<string>(SETTING_IDS.IMPORT_LOCATION);
+  const errors: string[] = [];
 
-  // Detect trashed bookmarks upfront so we can import their highlights before archiving
-  const trashedBookmarks = await detectTrashedBookmarks(plugin, token);
+  // Detect trashed bookmarks upfront so we can import their highlights before
+  // archiving. A failure here shouldn't block importing new highlights; report
+  // it and leave the last-sync time alone so the next run re-covers the window.
+  let trashedBookmarks: TrashedBookmark[] = [];
+  let trashDetectionFailed = false;
+  try {
+    trashedBookmarks = await detectTrashedBookmarks(plugin, token);
+  } catch (err) {
+    trashDetectionFailed = true;
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push(`Failed to check for deleted bookmarks: ${message}`);
+  }
 
   const [allHighlights, importedIds] = await Promise.all([
     fetchAllHighlights(token),
     getImportedIds(plugin),
   ]);
 
+  // A highlight can show up in both feeds (e.g. a bookmark trashed after the
+  // highlights feed was cached), so dedupe before importing.
   const trashedHighlights = trashedBookmarks.flatMap((b) => b.highlights);
-  const newHighlights = [...allHighlights, ...trashedHighlights].filter(
+  const newHighlights = dedupeHighlights([...allHighlights, ...trashedHighlights]).filter(
     (h) => !importedIds.has(h._id)
   );
-
-  const errors: string[] = [];
 
   // Trashed bookmarks may still need archiving even when there is nothing new
   // to import (e.g. all their highlights were imported in an earlier sync).
   if (newHighlights.length === 0 && trashedBookmarks.length === 0) {
-    await setLastSyncTime(plugin, new Date().toISOString());
-    return { imported: 0, archived: 0, errors: [] };
+    if (!trashDetectionFailed) await setLastSyncTime(plugin, new Date().toISOString());
+    return { imported: 0, archived: 0, errors };
   }
 
   const articles = groupHighlightsByArticle(newHighlights);
@@ -155,21 +188,27 @@ async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
   for (const article of articles) {
     try {
       const existingRemId = articleUrlRemMap[article.sourceUrl];
-      const articleRemId = await importArticle(plugin, article, existingRemId);
-      importedHighlightIds.push(...article.highlights.map((h) => h._id));
+      const result = await importArticle(plugin, article, existingRemId);
+      importedHighlightIds.push(...result.importedHighlightIds);
+      errors.push(...result.errors);
 
-      // Store raindropRef → remId mapping for trash detection
-      const raindropRef = article.highlights[0].raindropRef;
-      newRaindropRemEntries[String(raindropRef)] = articleRemId;
-      newArticleUrlRemEntries[article.sourceUrl] = articleRemId;
+      // Store raindropRef → remId mappings for trash detection. Several
+      // bookmarks (e.g. the same URL saved to two collections) can share an
+      // article, and trashing any of them should find the Rem.
+      for (const h of article.highlights) {
+        newRaindropRemEntries[String(h.raindropRef)] = result.articleRemId;
+      }
+      newArticleUrlRemEntries[article.sourceUrl] = result.articleRemId;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`Failed to import "${article.title}": ${message}`);
     }
   }
 
-  if (importedHighlightIds.length > 0) {
-    await markAsImported(plugin, importedHighlightIds);
+  // Record the article Rems even when some highlights failed, so retries of
+  // those highlights land in the same article rather than a duplicate.
+  if (Object.keys(newArticleUrlRemEntries).length > 0) {
+    if (importedHighlightIds.length > 0) await markAsImported(plugin, importedHighlightIds);
     await updateRaindropRemMap(plugin, newRaindropRemEntries);
     await updateArticleUrlRemMap(plugin, newArticleUrlRemEntries);
   }
@@ -179,6 +218,7 @@ async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
   // mode articles keep their place in whichever day's document they landed in.
   let archived = 0;
   const archivedIds: string[] = [];
+  const archivedRemIds: string[] = [];
   if (location === IMPORT_LOCATIONS.DEDICATED) {
     for (const { raindropId, remId } of trashedBookmarks) {
       // A bookmark trashed before it was ever synced gets its Rem created by the
@@ -189,16 +229,22 @@ async function runSync(plugin: RNPlugin, token: string): Promise<SyncResult> {
         await moveArticleToCompleted(plugin, targetRemId);
         archived++;
         archivedIds.push(raindropId);
+        archivedRemIds.push(targetRemId);
       } catch (err) {
-        console.error(`[Raindrop] Failed to archive raindrop ${raindropId}:`, err);
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push(`Failed to archive deleted bookmark ${raindropId}: ${message}`);
       }
     }
     if (archivedIds.length > 0) {
       await removeRaindropRemEntries(plugin, archivedIds);
+      // Forget the URL mapping too: if the bookmark is restored and highlighted
+      // again, the new highlights should start a fresh article rather than be
+      // appended under Completed.
+      await removeArticleUrlRemEntriesForRems(plugin, archivedRemIds);
     }
   }
 
-  await setLastSyncTime(plugin, new Date().toISOString());
+  if (!trashDetectionFailed) await setLastSyncTime(plugin, new Date().toISOString());
 
   return { imported: importedHighlightIds.length, archived, errors };
 }
@@ -212,6 +258,11 @@ export function startPolling(plugin: RNPlugin, intervalMinutes: number): void {
 
   pollingIntervalId = setInterval(async () => {
     try {
+      // The token may have been cleared since polling started; don't nag
+      // about it every interval.
+      const token = await plugin.settings.getSetting<string>(SETTING_IDS.API_TOKEN);
+      if (!token || !token.trim()) return;
+
       const result = await performSync(plugin);
       if (result.skipped) return;
       await recordSyncOutcome(plugin, result);

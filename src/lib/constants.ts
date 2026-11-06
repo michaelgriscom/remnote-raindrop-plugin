@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   SYNC_STATUS: 'remnote-raindrop-plugin_sync-status',
   SYNC_RESULT: 'remnote-raindrop-plugin_sync-result',
   SYNC_LOCK: 'remnote-raindrop-plugin_sync-lock',
+  DEDICATED_PARENT_REM_ID: 'remnote-raindrop-plugin_dedicated-parent-rem-id',
 } as const;
 
 export const IMPORT_LOCATIONS = {
